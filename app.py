@@ -63,6 +63,18 @@ def get_astrology_chart():
     }
 
     return jsonify(astro_data)
+    
+@app.route('/moonphase', methods=['GET'])
+def get_moon_phase():
+    date = request.args.get('date')
+
+    # Simulated Moon Phase response
+    moon_data = {
+        "date": date,
+        "moon_phase": "New Moon"   # Placeholder for now
+    }
+
+    return jsonify(moon_data)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=10000)
