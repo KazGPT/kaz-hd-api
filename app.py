@@ -78,6 +78,8 @@ def get_profile():
     return jsonify(hd_data)
 
 
+import requests  # <-- Add this at the top with your other imports
+
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
@@ -87,21 +89,23 @@ def get_astrology_chart():
     
     # Convert date to correct format for Flatlib
     date = date.replace('-', '/')
-    
-    # Now create Datetime object properly
-    dt = Datetime(date, time, '+10:00')
-    
-    # Continue with GeoPos, Chart etc.
 
+    # Geocode the location
+    geocode_url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json&limit=1"
+    response = requests.get(geocode_url)
+    if response.status_code != 200 or not response.json():
+        return jsonify({"error": "Location not found"}), 400
 
-    # Create Sydney coordinates (GeoPos expects D:M:S)
-    pos = GeoPos('-33:52:00', '151:12:00')
+    geo_data = response.json()[0]
+    lat = geo_data['lat']
+    lon = geo_data['lon']
+
+    # Create Datetime and GeoPos
+    dt = Datetime(date, time, '+10:00')  # (timezone could be improved later)
+    pos = GeoPos(lat, lon)
 
     # Create the full Chart object
     chart = Chart(dt, pos)
-
-    # (rest of your astrology chart code continues here...)
-
 
     # Get core planetary points
     sun = chart.get('SUN')
@@ -117,6 +121,7 @@ def get_astrology_chart():
     ascendant = chart.get('ASC')
     midheaven = chart.get('MC')
 
+    # Build astro data
     astro_data = {
         "name": name,
         "date": date,
@@ -136,7 +141,7 @@ def get_astrology_chart():
         "midheaven_sign": midheaven.sign
     }
 
-    # Now Dominant Element + Mode Calculation
+    # Calculate Dominant Element and Mode
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
@@ -160,6 +165,7 @@ def get_astrology_chart():
     astro_data['mode'] = dominant_mode
 
     return jsonify(astro_data)
+
 
     
 @app.route('/moonphase', methods=['GET'])
