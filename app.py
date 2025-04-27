@@ -7,39 +7,20 @@ import requests
 
 # Zodiac Elements
 ELEMENTS = {
-    'ARIES': 'Fire',
-    'TAURUS': 'Earth',
-    'GEMINI': 'Air',
-    'CANCER': 'Water',
-    'LEO': 'Fire',
-    'VIRGO': 'Earth',
-    'LIBRA': 'Air',
-    'SCORPIO': 'Water',
-    'SAGITTARIUS': 'Fire',
-    'CAPRICORN': 'Earth',
-    'AQUARIUS': 'Air',
-    'PISCES': 'Water'
+    'ARIES': 'Fire', 'TAURUS': 'Earth', 'GEMINI': 'Air', 'CANCER': 'Water',
+    'LEO': 'Fire', 'VIRGO': 'Earth', 'LIBRA': 'Air', 'SCORPIO': 'Water',
+    'SAGITTARIUS': 'Fire', 'CAPRICORN': 'Earth', 'AQUARIUS': 'Air', 'PISCES': 'Water'
 }
 
 # Zodiac Modes
 MODES = {
-    'ARIES': 'Cardinal',
-    'TAURUS': 'Fixed',
-    'GEMINI': 'Mutable',
-    'CANCER': 'Cardinal',
-    'LEO': 'Fixed',
-    'VIRGO': 'Mutable',
-    'LIBRA': 'Cardinal',
-    'SCORPIO': 'Fixed',
-    'SAGITTARIUS': 'Mutable',
-    'CAPRICORN': 'Cardinal',
-    'AQUARIUS': 'Fixed',
-    'PISCES': 'Mutable'
+    'ARIES': 'Cardinal', 'TAURUS': 'Fixed', 'GEMINI': 'Mutable', 'CANCER': 'Cardinal',
+    'LEO': 'Fixed', 'VIRGO': 'Mutable', 'LIBRA': 'Cardinal', 'SCORPIO': 'Fixed',
+    'SAGITTARIUS': 'Mutable', 'CAPRICORN': 'Cardinal', 'AQUARIUS': 'Fixed', 'PISCES': 'Mutable'
 }
 
 app = Flask(__name__)
 
-# --- HUMAN DESIGN ENDPOINT ---
 @app.route('/humandesign/profile', methods=['GET'])
 def get_profile():
     name = request.args.get('name')
@@ -47,6 +28,7 @@ def get_profile():
     time = request.args.get('time')
     location = request.args.get('location')
 
+    # Simulated Human Design response (for now)
     hd_data = {
         "name": name,
         "date": date,
@@ -78,7 +60,6 @@ def get_profile():
 
     return jsonify(hd_data)
 
-# --- ASTROLOGY ENDPOINT ---
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
@@ -86,14 +67,14 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Format date for Flatlib
-    date = date.replace('-', '/')
+    # Convert date to correct format
+    safe_date = date.replace('-', '/')
 
-    # Properly encode location
+    # Encode location safely for URL
     safe_location = quote(location)
 
-    # Geocode the location dynamically
-    geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_location}&format=json"
+    # Geocode location
+    geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_location}&format=json&limit=1"
     response = requests.get(geocode_url)
     if response.status_code != 200 or not response.json():
         return jsonify({"error": "Location not found"}), 400
@@ -102,14 +83,15 @@ def get_astrology_chart():
     lat = geo_data['lat']
     lon = geo_data['lon']
 
-    # Create datetime and geoposition
-    year, month, day = date.split('/')
+    # Parse datetime
+    year, month, day = safe_date.split('/')
     hour, minute = time.split(':')
-    dt = Datetime(year, month, day, hour, minute, '+10:00')
+
+    dt = Datetime(year, month, day, hour, minute, '+00:00')  # UTC by default
     pos = GeoPos(lat, lon)
     chart = Chart(dt, pos)
 
-    # Get major astrological points
+    # Get core planets
     sun = chart.get('SUN')
     moon = chart.get('MOON')
     mercury = chart.get('MER')
@@ -123,7 +105,7 @@ def get_astrology_chart():
     ascendant = chart.get('ASC')
     midheaven = chart.get('MC')
 
-    # Build astro data
+    # Build astrology response
     astro_data = {
         "name": name,
         "date": date,
@@ -140,10 +122,10 @@ def get_astrology_chart():
         "neptune_sign": neptune.sign,
         "pluto_sign": pluto.sign,
         "rising_sign": ascendant.sign,
-        "midheaven_sign": midheaven.sign
+        "midheaven_sign": midheaven.sign,
     }
 
-    # Calculate Dominant Element and Mode
+    # Calculate dominant element and mode
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
@@ -168,12 +150,10 @@ def get_astrology_chart():
 
     return jsonify(astro_data)
 
-# --- MOON PHASE ENDPOINT ---
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
 
-    # Simulated Moon Phase
     moon_data = {
         "date": date,
         "moon_phase": "New Moon"  # Placeholder
@@ -183,3 +163,4 @@ def get_moon_phase():
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=10000)
+
