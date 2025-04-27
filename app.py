@@ -86,7 +86,7 @@ def get_astrology_chart():
     location = request.args.get('location')
 
     # For now, using Sydney fixed coordinates; later we can make dynamic!
-    pos = GeoPos('-33.8688', '151.2093')  # Sydney coordinates
+    pos = GeoPos('-33:52:00', '151:12:00')  # Sydney coordinates in D:M:S
     dt = Datetime(date, time, '+10:00')   # Sydney timezone
     chart = Chart(dt, pos)
 
