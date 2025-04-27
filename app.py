@@ -85,12 +85,8 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Parse date and time properly
-    year, month, day = date.split('-')
-    hour, minute = time.split(':')
-
-    # Now create Datetime object properly
-    dt = Datetime(year, month, day, hour, minute, '+10:00')
+   # Create Datetime object properly
+    dt = Datetime(date, time, '+10:00')
 
     # Create Sydney coordinates (GeoPos expects D:M:S)
     pos = GeoPos('-33:52:00', '151:12:00')
