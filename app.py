@@ -10,7 +10,7 @@ def get_profile():
     location = request.args.get('location')
 
     # Simulated HD response
-    hd_data = {
+hd_data = {
     "name": name,
     "date": date,
     "time": time,
@@ -39,10 +39,30 @@ def get_profile():
     "mode": "Fixed"
 }
 
+return jsonify(hd_data)
+
+@app.route('/astrology/chart', methods=['GET'])
+def get_astrology_chart():
+    name = request.args.get('name')
+    date = request.args.get('date')
+    time = request.args.get('time')
+    location = request.args.get('location')
+
+    # Simulated Astro response
+    astro_data = {
+        "name": name,
+        "date": date,
+        "time": time,
+        "location": location,
+        "sun_sign": "Taurus",
+        "moon_sign": "Cancer",
+        "rising_sign": "Leo",
+        "midheaven": "Aquarius",
+        "dominant_element": "Earth",
+        "mode": "Fixed"
     }
 
-    return jsonify(hd_data)
+    return jsonify(astro_data)
 
 if __name__ == '__main__':
-  app.run(host="0.0.0.0", port=10000)
-
+    app.run(host="0.0.0.0", port=10000)
