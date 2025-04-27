@@ -78,7 +78,7 @@ def get_profile():
     return jsonify(hd_data)
 
 
-import requests  # <-- Add this at the top with your other imports
+import requests  # <-- stays right here with the other imports
 
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
@@ -86,7 +86,7 @@ def get_astrology_chart():
     date = request.args.get('date')
     time = request.args.get('time')
     location = request.args.get('location')
-    
+
     # Convert date to correct format for Flatlib
     date = date.replace('-', '/')
 
@@ -101,11 +101,13 @@ def get_astrology_chart():
     lon = geo_data['lon']
 
     # Create Datetime and GeoPos
-    dt = Datetime(date, time, '+10:00')  # (timezone could be improved later)
+    dt = Datetime(date, time, '+10:00')
     pos = GeoPos(lat, lon)
 
     # Create the full Chart object
     chart = Chart(dt, pos)
+
+    # (and continue with your SUN, MOON, MERCURY, etc as normal...)
 
     # Get core planetary points
     sun = chart.get('SUN')
