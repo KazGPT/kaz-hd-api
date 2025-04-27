@@ -1,4 +1,8 @@
 from flask import Flask, request, jsonify
+from flatlib.chart import Chart
+from flatlib.datetime import Datetime
+from flatlib.geopos import GeoPos
+
 
 app = Flask(__name__)
 
