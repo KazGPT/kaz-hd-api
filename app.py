@@ -85,10 +85,21 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # For now, using Sydney fixed coordinates; later we can make dynamic!
-    pos = GeoPos('-33:52:00', '151:12:00')  # Sydney coordinates in D:M:S
-    dt = Datetime(date, time, '+10:00')   # Sydney timezone
+    # Parse date and time properly
+    year, month, day = date.split('-')
+    hour, minute = time.split(':')
+
+    # Now create Datetime object properly
+    dt = Datetime(year, month, day, hour, minute, '+10:00')
+
+    # Create Sydney coordinates (GeoPos expects D:M:S)
+    pos = GeoPos('-33:52:00', '151:12:00')
+
+    # Create the full Chart object
     chart = Chart(dt, pos)
+
+    # (rest of your astrology chart code continues here...)
+
 
     # Get core planetary points
     sun = chart.get('SUN')
@@ -104,7 +115,6 @@ def get_astrology_chart():
     ascendant = chart.get('ASC')
     midheaven = chart.get('MC')
 
-    # Build the expanded astro data response
     astro_data = {
         "name": name,
         "date": date,
@@ -124,29 +134,26 @@ def get_astrology_chart():
         "midheaven_sign": midheaven.sign
     }
 
-# List of all placements
+    # Now Dominant Element + Mode Calculation
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
         ascendant.sign, midheaven.sign
     ]
 
-    # Count Elements and Modes
     element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
     mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
 
     for sign in placements:
-        sign_upper = sign.upper()  # Ensure it's uppercase for matching
+        sign_upper = sign.upper()
         if sign_upper in ELEMENTS:
             element_counts[ELEMENTS[sign_upper]] += 1
         if sign_upper in MODES:
             mode_counts[MODES[sign_upper]] += 1
 
-    # Find Dominant Element and Mode
     dominant_element = max(element_counts, key=element_counts.get)
     dominant_mode = max(mode_counts, key=mode_counts.get)
 
-    # Add to astro_data
     astro_data['dominant_element'] = dominant_element
     astro_data['mode'] = dominant_mode
 
