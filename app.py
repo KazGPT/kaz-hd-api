@@ -84,9 +84,15 @@ def get_astrology_chart():
     date = request.args.get('date')
     time = request.args.get('time')
     location = request.args.get('location')
-
-   # Create Datetime object properly
+    
+    # Convert date to correct format for Flatlib
+    date = date.replace('-', '/')
+    
+    # Now create Datetime object properly
     dt = Datetime(date, time, '+10:00')
+    
+    # Continue with GeoPos, Chart etc.
+
 
     # Create Sydney coordinates (GeoPos expects D:M:S)
     pos = GeoPos('-33:52:00', '151:12:00')
