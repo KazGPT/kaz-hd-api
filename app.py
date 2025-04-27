@@ -3,6 +3,38 @@ from flatlib.chart import Chart
 from flatlib.datetime import Datetime
 from flatlib.geopos import GeoPos
 
+# Zodiac Elements
+ELEMENTS = {
+    'ARIES': 'Fire',
+    'TAURUS': 'Earth',
+    'GEMINI': 'Air',
+    'CANCER': 'Water',
+    'LEO': 'Fire',
+    'VIRGO': 'Earth',
+    'LIBRA': 'Air',
+    'SCORPIO': 'Water',
+    'SAGITTARIUS': 'Fire',
+    'CAPRICORN': 'Earth',
+    'AQUARIUS': 'Air',
+    'PISCES': 'Water'
+}
+
+# Zodiac Modes
+MODES = {
+    'ARIES': 'Cardinal',
+    'TAURUS': 'Fixed',
+    'GEMINI': 'Mutable',
+    'CANCER': 'Cardinal',
+    'LEO': 'Fixed',
+    'VIRGO': 'Mutable',
+    'LIBRA': 'Cardinal',
+    'SCORPIO': 'Fixed',
+    'SAGITTARIUS': 'Mutable',
+    'CAPRICORN': 'Cardinal',
+    'AQUARIUS': 'Fixed',
+    'PISCES': 'Mutable'
+}
+
 
 app = Flask(__name__)
 
@@ -91,6 +123,32 @@ def get_astrology_chart():
         "rising_sign": ascendant.sign,
         "midheaven_sign": midheaven.sign
     }
+
+# List of all placements
+    placements = [
+        sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
+        jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
+        ascendant.sign, midheaven.sign
+    ]
+
+    # Count Elements and Modes
+    element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
+    mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
+
+    for sign in placements:
+        sign_upper = sign.upper()  # Ensure it's uppercase for matching
+        if sign_upper in ELEMENTS:
+            element_counts[ELEMENTS[sign_upper]] += 1
+        if sign_upper in MODES:
+            mode_counts[MODES[sign_upper]] += 1
+
+    # Find Dominant Element and Mode
+    dominant_element = max(element_counts, key=element_counts.get)
+    dominant_mode = max(mode_counts, key=mode_counts.get)
+
+    # Add to astro_data
+    astro_data['dominant_element'] = dominant_element
+    astro_data['mode'] = dominant_mode
 
     return jsonify(astro_data)
 
