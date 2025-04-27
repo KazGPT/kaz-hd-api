@@ -53,21 +53,36 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Simulated Astro response
+    # Split location into city, state, country (for now, we use just City coordinates)
+    # Here we assume Sydney as example coordinates, you can later add dynamic lookup if needed
+    pos = GeoPos('-33.8688', '151.2093')  # Sydney coordinates (Latitude, Longitude)
+
+    # Create a Flatlib Datetime object
+    dt = Datetime(date, time, '+10:00')  # +10:00 timezone offset for Sydney (adjust dynamically later)
+
+    # Create the Chart
+    chart = Chart(dt, pos)
+
+    # Extract the core points
+    sun = chart.get('SUN')
+    moon = chart.get('MOON')
+    ascendant = chart.get('ASC')
+    midheaven = chart.get('MC')
+
+    # Build the real Astro response
     astro_data = {
         "name": name,
         "date": date,
         "time": time,
         "location": location,
-        "sun_sign": "Taurus",
-        "moon_sign": "Cancer",
-        "rising_sign": "Leo",
-        "midheaven": "Aquarius",
-        "dominant_element": "Earth",
-        "mode": "Fixed"
+        "sun_sign": sun.sign,
+        "moon_sign": moon.sign,
+        "rising_sign": ascendant.sign,
+        "midheaven": midheaven.sign
     }
 
     return jsonify(astro_data)
+
     
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
