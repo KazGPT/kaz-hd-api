@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 from flatlib.chart import Chart
 from flatlib.datetime import Datetime
 from flatlib.geopos import GeoPos
+from urllib.parse import quote
+import requests
 
 # Zodiac Elements
 ELEMENTS = {
@@ -35,9 +37,9 @@ MODES = {
     'PISCES': 'Mutable'
 }
 
-
 app = Flask(__name__)
 
+# --- HUMAN DESIGN ENDPOINT ---
 @app.route('/humandesign/profile', methods=['GET'])
 def get_profile():
     name = request.args.get('name')
@@ -45,7 +47,6 @@ def get_profile():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Simulated HD response
     hd_data = {
         "name": name,
         "date": date,
@@ -63,10 +64,10 @@ def get_profile():
         "motivation": "Hope",
         "perspective": "Personal",
         "environment": "Mountains",
-        "gates": ["34", "20", "10", "57"],  # Example Gates
-        "channels": ["34-20", "10-57"],      # Example Channels
-        "defined_centres": ["Sacral", "G", "Throat"],   # Example Centres
-        "undefined_centres": ["Root", "Solar Plexus", "Heart"],  # Example Centres
+        "gates": ["34", "20", "10", "57"],
+        "channels": ["34-20", "10-57"],
+        "defined_centres": ["Sacral", "G", "Throat"],
+        "undefined_centres": ["Root", "Solar Plexus", "Heart"],
         "sun_sign": "Taurus",
         "moon_sign": "Cancer",
         "rising_sign": "Leo",
@@ -77,9 +78,7 @@ def get_profile():
 
     return jsonify(hd_data)
 
-
-import requests  # <-- stays right here with the other imports
-
+# --- ASTROLOGY ENDPOINT ---
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
@@ -87,11 +86,14 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Convert date to correct format for Flatlib
+    # Format date for Flatlib
     date = date.replace('-', '/')
 
-    # Geocode the location
-    geocode_url = f"https://nominatim.openstreetmap.org/search?q={location}&format=json&limit=1"
+    # Properly encode location
+    safe_location = quote(location)
+
+    # Geocode the location dynamically
+    geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_location}&format=json"
     response = requests.get(geocode_url)
     if response.status_code != 200 or not response.json():
         return jsonify({"error": "Location not found"}), 400
@@ -100,16 +102,14 @@ def get_astrology_chart():
     lat = geo_data['lat']
     lon = geo_data['lon']
 
-    # Create Datetime and GeoPos
-    dt = Datetime(date, time, '+10:00')
+    # Create datetime and geoposition
+    year, month, day = date.split('/')
+    hour, minute = time.split(':')
+    dt = Datetime(year, month, day, hour, minute, '+10:00')
     pos = GeoPos(lat, lon)
-
-    # Create the full Chart object
     chart = Chart(dt, pos)
 
-    # (and continue with your SUN, MOON, MERCURY, etc as normal...)
-
-    # Get core planetary points
+    # Get major astrological points
     sun = chart.get('SUN')
     moon = chart.get('MOON')
     mercury = chart.get('MER')
@@ -168,16 +168,15 @@ def get_astrology_chart():
 
     return jsonify(astro_data)
 
-
-    
+# --- MOON PHASE ENDPOINT ---
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
 
-    # Simulated Moon Phase response
+    # Simulated Moon Phase
     moon_data = {
         "date": date,
-        "moon_phase": "New Moon"   # Placeholder for now
+        "moon_phase": "New Moon"  # Placeholder
     }
 
     return jsonify(moon_data)
