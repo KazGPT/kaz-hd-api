@@ -114,11 +114,9 @@ def get_astrology_chart():
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
-    # Fix the DateTime and GeoPos creation
-
-    dt = Datetime(date, time, '+10:00')  # Date stays YYYY-MM-DD for Flatlib
+    # Create Flatlib DateTime and GeoPos
+    dt = Datetime(date_formatted, time, '+10:00')  # << CORRECT now
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
-
 
     # Create the Chart
     chart = Chart(dt, pos)
@@ -181,6 +179,7 @@ def get_astrology_chart():
     astro_data['mode'] = dominant_mode
 
     return jsonify(astro_data)
+
 
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
