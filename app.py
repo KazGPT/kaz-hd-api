@@ -5,6 +5,7 @@ from flatlib.geopos import GeoPos
 from urllib.parse import quote
 import requests
 import os
+from datetime import datetime  # <--- clean import, grouped properly
 
 app = Flask(__name__)
 
@@ -72,8 +73,6 @@ def get_profile():
     }
 
     return jsonify(hd_data)
-
-from datetime import datetime  # Add this at the top with your imports
 
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
