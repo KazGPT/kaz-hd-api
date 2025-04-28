@@ -101,8 +101,9 @@ def get_astrology_chart():
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
-    dt = Datetime(date, time_24hr, '+00:00')  # Now using the corrected 24-hour time
-    chart = Chart(dt, pos, IDs=Chart.NATAL)
+    dt = Datetime(date, time_24hr, '+00:00')
+    chart = Chart(dt, pos, IDs='NATAL')
+
 
     # Prepare astro data
     astro_data = {
