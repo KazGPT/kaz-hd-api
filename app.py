@@ -1,5 +1,3 @@
-# app.py
-
 from flask import Flask, request, jsonify
 from flatlib.chart import Chart
 from flatlib.datetime import Datetime
@@ -23,8 +21,41 @@ MODES = {
     'SAGITTARIUS': 'Mutable', 'CAPRICORN': 'Cardinal', 'AQUARIUS': 'Fixed', 'PISCES': 'Mutable'
 }
 
-# YOUR GOOGLE API KEY
-GOOGLE_API_KEY = 'AIzaSyBt8ZnaQxmwYVu1lfyR6RYrPxdMItGa4eA'  # <— your key here
+# GOOGLE API Key from environment variable
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+
+@app.route('/humandesign/profile', methods=['GET'])
+def get_profile():
+    name = request.args.get('name')
+    date = request.args.get('date')
+    time = request.args.get('time')
+    location = request.args.get('location')
+
+    # Simulated HD response (replace with real data pull later)
+    hd_data = {
+        "name": name,
+        "date": date,
+        "time": time,
+        "location": location,
+        "type": "Manifesting Generator",
+        "strategy": "To Respond",
+        "authority": "Emotional - Solar Plexus",
+        "profile": "6/2",
+        "definition": "Split Definition",
+        "incarnation_cross": "Right Angle Cross of the Sleeping Phoenix",
+        "signature": "Satisfaction",
+        "not_self_theme": "Frustration",
+        "digestion": "Nervous",
+        "motivation": "Hope",
+        "perspective": "Personal",
+        "environment": "Mountains",
+        "gates": ["34", "20", "10", "57"],
+        "channels": ["34-20", "10-57"],
+        "defined_centres": ["Sacral", "G", "Throat"],
+        "undefined_centres": ["Root", "Solar Plexus", "Heart"]
+    }
+
+    return jsonify(hd_data)
 
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
@@ -33,10 +64,10 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Format date correctly for Flatlib
+    # Convert date for Flatlib
     date_formatted = date.replace('-', '/')
 
-    # Call Google Geocoding API
+    # Google Geocode API call
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
@@ -47,14 +78,12 @@ def get_astrology_chart():
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
-    # Create Flatlib DateTime and GeoPos
-    dt = Datetime(date_formatted, time, '+10:00')  # ✅ correct now
+    # Create Flatlib datetime and GeoPos
+    dt = Datetime(date_formatted, time, '+10:00')
     pos = GeoPos(str(lat), str(lon))
-
-    # Create the Chart
     chart = Chart(dt, pos)
 
-    # Gather key astro points
+    # Get planetary points
     sun = chart.get('SUN')
     moon = chart.get('MOON')
     mercury = chart.get('MER')
@@ -88,7 +117,7 @@ def get_astrology_chart():
         "midheaven_sign": midheaven.sign
     }
 
-    # Calculate dominant Element and Mode
+    # Calculate Dominant Element and Mode
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
@@ -113,5 +142,17 @@ def get_astrology_chart():
 
     return jsonify(astro_data)
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=10000)
+@app.route('/moonphase', methods=['GET'])
+def get_moon_phase():
+    date = request.args.get('date')
+
+    # Simulated Moon Phase response for now
+    moon_data = {
+        "date": date,
+        "moon_phase": "New Moon"
+    }
+
+    return jsonify(moon_data)
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=10000)
