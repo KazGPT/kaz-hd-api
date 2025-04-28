@@ -2,27 +2,53 @@ from flask import Flask, request, jsonify
 from flatlib.chart import Chart
 from flatlib.datetime import Datetime
 from flatlib.geopos import GeoPos
+from urllib.parse import quote
 import requests
-import os
-
-app = Flask(__name__)
 
 # Zodiac Elements
 ELEMENTS = {
-    'ARIES': 'Fire', 'TAURUS': 'Earth', 'GEMINI': 'Air', 'CANCER': 'Water',
-    'LEO': 'Fire', 'VIRGO': 'Earth', 'LIBRA': 'Air', 'SCORPIO': 'Water',
-    'SAGITTARIUS': 'Fire', 'CAPRICORN': 'Earth', 'AQUARIUS': 'Air', 'PISCES': 'Water'
+    'ARIES': 'Fire',
+    'TAURUS': 'Earth',
+    'GEMINI': 'Air',
+    'CANCER': 'Water',
+    'LEO': 'Fire',
+    'VIRGO': 'Earth',
+    'LIBRA': 'Air',
+    'SCORPIO': 'Water',
+    'SAGITTARIUS': 'Fire',
+    'CAPRICORN': 'Earth',
+    'AQUARIUS': 'Air',
+    'PISCES': 'Water'
 }
 
 # Zodiac Modes
 MODES = {
-    'ARIES': 'Cardinal', 'TAURUS': 'Fixed', 'GEMINI': 'Mutable', 'CANCER': 'Cardinal',
-    'LEO': 'Fixed', 'VIRGO': 'Mutable', 'LIBRA': 'Cardinal', 'SCORPIO': 'Fixed',
-    'SAGITTARIUS': 'Mutable', 'CAPRICORN': 'Cardinal', 'AQUARIUS': 'Fixed', 'PISCES': 'Mutable'
+    'ARIES': 'Cardinal',
+    'TAURUS': 'Fixed',
+    'GEMINI': 'Mutable',
+    'CANCER': 'Cardinal',
+    'LEO': 'Fixed',
+    'VIRGO': 'Mutable',
+    'LIBRA': 'Cardinal',
+    'SCORPIO': 'Fixed',
+    'SAGITTARIUS': 'Mutable',
+    'CAPRICORN': 'Cardinal',
+    'AQUARIUS': 'Fixed',
+    'PISCES': 'Mutable'
 }
 
-# GOOGLE API Key from environment variable
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+app = Flask(__name__)
+
+# Utility to convert Decimal Degrees to D:M:S (required for Flatlib)
+def decimal_to_dms(decimal):
+    is_negative = decimal < 0
+    decimal = abs(decimal)
+    degrees = int(decimal)
+    minutes_float = (decimal - degrees) * 60
+    minutes = int(minutes_float)
+    seconds = int((minutes_float - minutes) * 60)
+    dms = f"{'-' if is_negative else ''}{degrees}:{minutes}:{seconds}"
+    return dms
 
 @app.route('/humandesign/profile', methods=['GET'])
 def get_profile():
@@ -31,7 +57,7 @@ def get_profile():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Simulated HD response (replace with real data pull later)
+    # Simulated HD response (replace later with dynamic)
     hd_data = {
         "name": name,
         "date": date,
@@ -52,7 +78,13 @@ def get_profile():
         "gates": ["34", "20", "10", "57"],
         "channels": ["34-20", "10-57"],
         "defined_centres": ["Sacral", "G", "Throat"],
-        "undefined_centres": ["Root", "Solar Plexus", "Heart"]
+        "undefined_centres": ["Root", "Solar Plexus", "Heart"],
+        "sun_sign": "Taurus",
+        "moon_sign": "Cancer",
+        "rising_sign": "Leo",
+        "midheaven": "Aquarius",
+        "dominant_element": "Earth",
+        "mode": "Fixed"
     }
 
     return jsonify(hd_data)
@@ -64,10 +96,10 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Convert date for Flatlib
+    # Format date correctly for Flatlib
     date_formatted = date.replace('-', '/')
 
-    # Google Geocode API call
+    # Call Google Geocoding API
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
@@ -78,12 +110,14 @@ def get_astrology_chart():
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
-    # Create Flatlib datetime and GeoPos
+    # Create Flatlib DateTime and GeoPos
     dt = Datetime(date_formatted, time, '+10:00')
-    pos = GeoPos(str(lat), str(lon))
+    pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
+
+    # Create the Chart
     chart = Chart(dt, pos)
 
-    # Get planetary points
+    # Gather key astro points
     sun = chart.get('SUN')
     moon = chart.get('MOON')
     mercury = chart.get('MER')
@@ -117,7 +151,7 @@ def get_astrology_chart():
         "midheaven_sign": midheaven.sign
     }
 
-    # Calculate Dominant Element and Mode
+    # Calculate dominant Element and Mode
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
@@ -146,10 +180,10 @@ def get_astrology_chart():
 def get_moon_phase():
     date = request.args.get('date')
 
-    # Simulated Moon Phase response for now
+    # Simulated Moon Phase
     moon_data = {
         "date": date,
-        "moon_phase": "New Moon"
+        "moon_phase": "New Moon"  # Placeholder
     }
 
     return jsonify(moon_data)
