@@ -6,44 +6,24 @@ from urllib.parse import quote
 import requests
 import os
 
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-
-
-# Zodiac Elements
-ELEMENTS = {
-    'ARIES': 'Fire',
-    'TAURUS': 'Earth',
-    'GEMINI': 'Air',
-    'CANCER': 'Water',
-    'LEO': 'Fire',
-    'VIRGO': 'Earth',
-    'LIBRA': 'Air',
-    'SCORPIO': 'Water',
-    'SAGITTARIUS': 'Fire',
-    'CAPRICORN': 'Earth',
-    'AQUARIUS': 'Air',
-    'PISCES': 'Water'
-}
-
-# Zodiac Modes
-MODES = {
-    'ARIES': 'Cardinal',
-    'TAURUS': 'Fixed',
-    'GEMINI': 'Mutable',
-    'CANCER': 'Cardinal',
-    'LEO': 'Fixed',
-    'VIRGO': 'Mutable',
-    'LIBRA': 'Cardinal',
-    'SCORPIO': 'Fixed',
-    'SAGITTARIUS': 'Mutable',
-    'CAPRICORN': 'Cardinal',
-    'AQUARIUS': 'Fixed',
-    'PISCES': 'Mutable'
-}
-
 app = Flask(__name__)
 
-# Utility to convert Decimal Degrees to D:M:S (required for Flatlib)
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+
+# Zodiac Elements and Modes
+ELEMENTS = {
+    'ARIES': 'Fire', 'TAURUS': 'Earth', 'GEMINI': 'Air', 'CANCER': 'Water',
+    'LEO': 'Fire', 'VIRGO': 'Earth', 'LIBRA': 'Air', 'SCORPIO': 'Water',
+    'SAGITTARIUS': 'Fire', 'CAPRICORN': 'Earth', 'AQUARIUS': 'Air', 'PISCES': 'Water'
+}
+
+MODES = {
+    'ARIES': 'Cardinal', 'TAURUS': 'Fixed', 'GEMINI': 'Mutable', 'CANCER': 'Cardinal',
+    'LEO': 'Fixed', 'VIRGO': 'Mutable', 'LIBRA': 'Cardinal', 'SCORPIO': 'Fixed',
+    'SAGITTARIUS': 'Mutable', 'CAPRICORN': 'Cardinal', 'AQUARIUS': 'Fixed', 'PISCES': 'Mutable'
+}
+
+# Utility to convert Decimal Degrees to D:M:S
 def decimal_to_dms(decimal):
     is_negative = decimal < 0
     decimal = abs(decimal)
@@ -61,7 +41,7 @@ def get_profile():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Simulated HD response (replace later with dynamic)
+    # Simulated Human Design profile
     hd_data = {
         "name": name,
         "date": date,
@@ -96,83 +76,48 @@ def get_profile():
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
-    date = request.args.get('date')
+    date = request.args.get('date').replace('-', '/')
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Format date correctly for Flatlib (slashes, not hyphens)
-    date = date.replace('-', '/')
-
-    # Call Google Geocoding API to get latitude and longitude
-    geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location}&key={GOOGLE_API_KEY}"
+    geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={quote(location)}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
 
-    if not geo_data['results']:
+    if not geo_data.get('results'):
         return jsonify({"error": "Location not found"}), 400
 
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
-    # Fix coordinates into Flatlib required format
-    def decimal_to_dms(decimal):
-        is_negative = decimal < 0
-        decimal = abs(decimal)
-        degrees = int(decimal)
-        minutes_float = (decimal - degrees) * 60
-        minutes = int(minutes_float)
-        seconds = int((minutes_float - minutes) * 60)
-        dms = f"{'-' if is_negative else ''}{degrees}:{minutes}:{seconds}"
-        return dms
-
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
+    dt = Datetime(date, time, '+00:00')  # UTC for now
 
-    # Build the Chart (using NATAL chart settings)
-    dt = Datetime(date, time, '+00:00')  # Timezone is neutral UTC for now (simpler for Flatlib)
+    chart = Chart(dt, pos, IDs=Chart.NATAL)
 
-    chart = Chart(dt, pos)
 
     # Get planetary positions
-    sun = chart.getObject('SUN')
-    moon = chart.getObject('MOON')
-    mercury = chart.getObject('MER')
-    venus = chart.getObject('VEN')
-    mars = chart.getObject('MAR')
-    jupiter = chart.getObject('JUP')
-    saturn = chart.getObject('SAT')
-    uranus = chart.getObject('URA')
-    neptune = chart.getObject('NEP')
-    pluto = chart.getObject('PLU')
-    ascendant = chart.getObject('ASC')
-    midheaven = chart.getObject('MC')
-
-    # Prepare astro data
     astro_data = {
         "name": name,
         "date": date,
         "time": time,
         "location": location,
-        "sun_sign": sun.sign,
-        "moon_sign": moon.sign,
-        "mercury_sign": mercury.sign,
-        "venus_sign": venus.sign,
-        "mars_sign": mars.sign,
-        "jupiter_sign": jupiter.sign,
-        "saturn_sign": saturn.sign,
-        "uranus_sign": uranus.sign,
-        "neptune_sign": neptune.sign,
-        "pluto_sign": pluto.sign,
-        "rising_sign": ascendant.sign,
-        "midheaven_sign": midheaven.sign
+        "sun_sign": chart.getObject('SUN').sign,
+        "moon_sign": chart.getObject('MOON').sign,
+        "mercury_sign": chart.getObject('MER').sign,
+        "venus_sign": chart.getObject('VEN').sign,
+        "mars_sign": chart.getObject('MAR').sign,
+        "jupiter_sign": chart.getObject('JUP').sign,
+        "saturn_sign": chart.getObject('SAT').sign,
+        "uranus_sign": chart.getObject('URA').sign,
+        "neptune_sign": chart.getObject('NEP').sign,
+        "pluto_sign": chart.getObject('PLU').sign,
+        "rising_sign": chart.getObject('ASC').sign,
+        "midheaven_sign": chart.getObject('MC').sign
     }
 
-    # List of placements to calculate dominant element and mode
-    placements = [
-        sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
-        jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
-        ascendant.sign, midheaven.sign
-    ]
-
+    # Calculate dominant element and mode
+    placements = list(astro_data.values())[4:-2]
     element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
     mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
 
@@ -183,25 +128,20 @@ def get_astrology_chart():
         if sign_upper in MODES:
             mode_counts[MODES[sign_upper]] += 1
 
-    dominant_element = max(element_counts, key=element_counts.get)
-    dominant_mode = max(mode_counts, key=mode_counts.get)
-
-    astro_data['dominant_element'] = dominant_element
-    astro_data['mode'] = dominant_mode
+    astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
+    astro_data['mode'] = max(mode_counts, key=mode_counts.get)
 
     return jsonify(astro_data)
 
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
-
-    # Simulated Moon Phase
     moon_data = {
         "date": date,
-        "moon_phase": "New Moon"  # Placeholder
+        "moon_phase": "New Moon"  # Placeholder for now
     }
-
     return jsonify(moon_data)
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=10000)
+
