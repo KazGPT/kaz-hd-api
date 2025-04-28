@@ -100,7 +100,7 @@ def get_astrology_chart():
 
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
     dt = Datetime(date, time_24hr, '+00:00')
-    chart = Chart(dt, pos, IDs=['SUN', 'MOON', 'MERCURY', 'VENUS', 'MARS', 'JUPITER', 'SATURN', 'URANUS', 'NEPTUNE', 'PLUTO', 'ASC', 'MC'])
+    chart = Chart(dt, pos, IDs=['SUN', 'MOON', 'MER', 'VEN', 'MAR', 'JUP', 'SAT', 'URA', 'NEP', 'PLU', 'ASC', 'MC'])
 
 
     # Astro Data
