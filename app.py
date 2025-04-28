@@ -143,11 +143,13 @@ def get_astrology_chart():
     mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
 
     for sign in placements:
-        sign_upper = sign.upper()
-        if sign_upper in ELEMENTS:
-            element_counts[ELEMENTS[sign_upper]] += 1
-        if sign_upper in MODES:
-            mode_counts[MODES[sign_upper]] += 1
+        if sign:  # <--- Added safe check here!
+            sign_upper = sign.upper()
+            if sign_upper in ELEMENTS:
+                element_counts[ELEMENTS[sign_upper]] += 1
+            if sign_upper in MODES:
+                mode_counts[MODES[sign_upper]] += 1
+
 
     astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
