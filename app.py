@@ -110,9 +110,11 @@ def get_astrology_chart():
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
-    # Create Flatlib DateTime and GeoPos
-    dt = Datetime(date_formatted, time, '+10:00')
+    # Fix the DateTime and GeoPos creation
+
+    dt = Datetime(date, time, '+10:00')  # Date stays YYYY-MM-DD for Flatlib
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
+
 
     # Create the Chart
     chart = Chart(dt, pos)
