@@ -87,6 +87,7 @@ def get_astrology_chart():
     except ValueError:
         return jsonify({"error": "Invalid time format. Please use HH:MM AM/PM."}), 400
 
+    # Geocoding
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={quote(location)}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
@@ -101,56 +102,57 @@ def get_astrology_chart():
     dt = Datetime(date, time_24hr, '+00:00')
     chart = Chart(dt, pos, IDs='NATAL')
 
-# Prepare astro data
-astro_data = {
-    "name": name,
-    "date": date,
-    "time": time,
-    "location": location,
-    "sun_sign": chart.getObject('SUN').sign,
-    "moon_sign": chart.getObject('MOON').sign,
-    "mercury_sign": chart.getObject('MER').sign,
-    "venus_sign": chart.getObject('VEN').sign,
-    "mars_sign": chart.getObject('MAR').sign,
-    "jupiter_sign": chart.getObject('JUP').sign,
-    "saturn_sign": chart.getObject('SAT').sign,
-    "uranus_sign": chart.getObject('URA').sign,
-    "neptune_sign": chart.getObject('NEP').sign,
-    "pluto_sign": chart.getObject('PLU').sign,
-    "rising_sign": chart.getObject('ASC').sign,
-    "midheaven_sign": chart.getObject('MC').sign
-}
+    # Astro Data
+    astro_data = {
+        "name": name,
+        "date": date,
+        "time": time,
+        "location": location,
+        "sun_sign": chart.getObject('SUN').sign,
+        "moon_sign": chart.getObject('MOON').sign,
+        "mercury_sign": chart.getObject('MER').sign,
+        "venus_sign": chart.getObject('VEN').sign,
+        "mars_sign": chart.getObject('MAR').sign,
+        "jupiter_sign": chart.getObject('JUP').sign,
+        "saturn_sign": chart.getObject('SAT').sign,
+        "uranus_sign": chart.getObject('URA').sign,
+        "neptune_sign": chart.getObject('NEP').sign,
+        "pluto_sign": chart.getObject('PLU').sign,
+        "rising_sign": chart.getObject('ASC').sign,
+        "midheaven_sign": chart.getObject('MC').sign
+    }
 
-# Correct way to get placements
-placements = [
-    astro_data['sun_sign'],
-    astro_data['moon_sign'],
-    astro_data['mercury_sign'],
-    astro_data['venus_sign'],
-    astro_data['mars_sign'],
-    astro_data['jupiter_sign'],
-    astro_data['saturn_sign'],
-    astro_data['uranus_sign'],
-    astro_data['neptune_sign'],
-    astro_data['pluto_sign'],
-    astro_data['rising_sign'],
-    astro_data['midheaven_sign']
-]
+    # Correct placements extraction
+    placements = [
+        astro_data['sun_sign'],
+        astro_data['moon_sign'],
+        astro_data['mercury_sign'],
+        astro_data['venus_sign'],
+        astro_data['mars_sign'],
+        astro_data['jupiter_sign'],
+        astro_data['saturn_sign'],
+        astro_data['uranus_sign'],
+        astro_data['neptune_sign'],
+        astro_data['pluto_sign'],
+        astro_data['rising_sign'],
+        astro_data['midheaven_sign']
+    ]
 
-element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
-mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
+    # Count Elements and Modes
+    element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
+    mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
 
-for sign in placements:
-    sign_upper = sign.upper()
-    if sign_upper in ELEMENTS:
-        element_counts[ELEMENTS[sign_upper]] += 1
-    if sign_upper in MODES:
-        mode_counts[MODES[sign_upper]] += 1
+    for sign in placements:
+        sign_upper = sign.upper()
+        if sign_upper in ELEMENTS:
+            element_counts[ELEMENTS[sign_upper]] += 1
+        if sign_upper in MODES:
+            mode_counts[MODES[sign_upper]] += 1
 
-astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
-astro_data['mode'] = max(mode_counts, key=mode_counts.get)
+    astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
+    astro_data['mode'] = max(mode_counts, key=mode_counts.get)
 
-return jsonify(astro_data)
+    return jsonify(astro_data)
 
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
