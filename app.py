@@ -4,6 +4,10 @@ from flatlib.datetime import Datetime
 from flatlib.geopos import GeoPos
 from urllib.parse import quote
 import requests
+import os
+
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+
 
 # Zodiac Elements
 ELEMENTS = {
