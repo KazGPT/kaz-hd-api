@@ -100,10 +100,10 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Format date correctly for Flatlib
-    date_formatted = date.replace('-', '/')
+    # Format date correctly for Flatlib (slashes, not hyphens)
+    date = date.replace('-', '/')
 
-    # Call Google Geocoding API
+    # Call Google Geocoding API to get latitude and longitude
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
@@ -114,28 +114,39 @@ def get_astrology_chart():
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
-    # Create Flatlib DateTime and GeoPos
-    dt = Datetime(date_formatted, time, '+10:00')  # << CORRECT now
+    # Fix coordinates into Flatlib required format
+    def decimal_to_dms(decimal):
+        is_negative = decimal < 0
+        decimal = abs(decimal)
+        degrees = int(decimal)
+        minutes_float = (decimal - degrees) * 60
+        minutes = int(minutes_float)
+        seconds = int((minutes_float - minutes) * 60)
+        dms = f"{'-' if is_negative else ''}{degrees}:{minutes}:{seconds}"
+        return dms
+
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
 
-    # Create the Chart
+    # Build the Chart (using NATAL chart settings)
+    dt = Datetime(date, time, '+00:00')  # Timezone is neutral UTC for now (simpler for Flatlib)
+
     chart = Chart(dt, pos)
 
-    # Gather key astro points
-    sun = chart.get('SUN')
-    moon = chart.get('MOON')
-    mercury = chart.get('MER')
-    venus = chart.get('VEN')
-    mars = chart.get('MAR')
-    jupiter = chart.get('JUP')
-    saturn = chart.get('SAT')
-    uranus = chart.get('URA')
-    neptune = chart.get('NEP')
-    pluto = chart.get('PLU')
-    ascendant = chart.get('ASC')
-    midheaven = chart.get('MC')
+    # Get planetary positions
+    sun = chart.getObject('SUN')
+    moon = chart.getObject('MOON')
+    mercury = chart.getObject('MER')
+    venus = chart.getObject('VEN')
+    mars = chart.getObject('MAR')
+    jupiter = chart.getObject('JUP')
+    saturn = chart.getObject('SAT')
+    uranus = chart.getObject('URA')
+    neptune = chart.getObject('NEP')
+    pluto = chart.getObject('PLU')
+    ascendant = chart.getObject('ASC')
+    midheaven = chart.getObject('MC')
 
-    # Build astro data
+    # Prepare astro data
     astro_data = {
         "name": name,
         "date": date,
@@ -155,7 +166,7 @@ def get_astrology_chart():
         "midheaven_sign": midheaven.sign
     }
 
-    # Calculate dominant Element and Mode
+    # List of placements to calculate dominant element and mode
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
@@ -179,7 +190,6 @@ def get_astrology_chart():
     astro_data['mode'] = dominant_mode
 
     return jsonify(astro_data)
-
 
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
