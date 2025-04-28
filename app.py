@@ -33,9 +33,8 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Convert date to correct format for Flatlib
-    year, month, day = date.split('-')
-    hour, minute = time.split(':')
+    # Format date correctly for Flatlib
+    date_formatted = date.replace('-', '/')
 
     # Call Google Geocoding API
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location}&key={GOOGLE_API_KEY}"
@@ -49,7 +48,7 @@ def get_astrology_chart():
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
     # Create Flatlib DateTime and GeoPos
-    dt = Datetime(year, month, day, hour, minute, '+10:00')  # Assuming +10:00 timezone for now
+    dt = Datetime(date_formatted, time, '+10:00')  # ✅ correct now
     pos = GeoPos(str(lat), str(lon))
 
     # Create the Chart
