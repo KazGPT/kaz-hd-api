@@ -75,8 +75,6 @@ def get_profile():
 
 from datetime import datetime  # Add this at the top with your imports
 
-...
-
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
