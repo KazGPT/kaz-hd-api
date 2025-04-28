@@ -73,12 +73,22 @@ def get_profile():
 
     return jsonify(hd_data)
 
+from datetime import datetime  # Add this at the top with your imports
+
+...
+
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
     date = request.args.get('date').replace('-', '/')
     time = request.args.get('time')
     location = request.args.get('location')
+
+    # Convert 12-hour AM/PM time to 24-hour format
+    try:
+        time_24hr = datetime.strptime(time.strip(), "%I:%M %p").strftime("%H:%M")
+    except ValueError:
+        return jsonify({"error": "Invalid time format. Please use HH:MM AM/PM."}), 400
 
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={quote(location)}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
@@ -91,12 +101,10 @@ def get_astrology_chart():
     lon = geo_data['results'][0]['geometry']['location']['lng']
 
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
-    dt = Datetime(date, time, '+00:00')  # UTC for now
-
+    dt = Datetime(date, time_24hr, '+00:00')  # Now using the corrected 24-hour time
     chart = Chart(dt, pos, IDs=Chart.NATAL)
 
-
-    # Get planetary positions
+    # Prepare astro data
     astro_data = {
         "name": name,
         "date": date,
