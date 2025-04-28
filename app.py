@@ -1,9 +1,13 @@
+# app.py
+
 from flask import Flask, request, jsonify
 from flatlib.chart import Chart
 from flatlib.datetime import Datetime
 from flatlib.geopos import GeoPos
-from urllib.parse import quote
 import requests
+import os
+
+app = Flask(__name__)
 
 # Zodiac Elements
 ELEMENTS = {
@@ -19,46 +23,8 @@ MODES = {
     'SAGITTARIUS': 'Mutable', 'CAPRICORN': 'Cardinal', 'AQUARIUS': 'Fixed', 'PISCES': 'Mutable'
 }
 
-app = Flask(__name__)
-
-@app.route('/humandesign/profile', methods=['GET'])
-def get_profile():
-    name = request.args.get('name')
-    date = request.args.get('date')
-    time = request.args.get('time')
-    location = request.args.get('location')
-
-    # Simulated Human Design response (for now)
-    hd_data = {
-        "name": name,
-        "date": date,
-        "time": time,
-        "location": location,
-        "type": "Manifesting Generator",
-        "strategy": "To Respond",
-        "authority": "Emotional - Solar Plexus",
-        "profile": "6/2",
-        "definition": "Split Definition",
-        "incarnation_cross": "Right Angle Cross of the Sleeping Phoenix",
-        "signature": "Satisfaction",
-        "not_self_theme": "Frustration",
-        "digestion": "Nervous",
-        "motivation": "Hope",
-        "perspective": "Personal",
-        "environment": "Mountains",
-        "gates": ["34", "20", "10", "57"],
-        "channels": ["34-20", "10-57"],
-        "defined_centres": ["Sacral", "G", "Throat"],
-        "undefined_centres": ["Root", "Solar Plexus", "Heart"],
-        "sun_sign": "Taurus",
-        "moon_sign": "Cancer",
-        "rising_sign": "Leo",
-        "midheaven": "Aquarius",
-        "dominant_element": "Earth",
-        "mode": "Fixed"
-    }
-
-    return jsonify(hd_data)
+# YOUR GOOGLE API KEY
+GOOGLE_API_KEY = 'AIzaSyBt8ZnaQxmwYVu1lfyR6RYrPxdMItGa4eA'  # <— your key here
 
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
@@ -67,31 +33,29 @@ def get_astrology_chart():
     time = request.args.get('time')
     location = request.args.get('location')
 
-    # Convert date to correct format
-    safe_date = date.replace('-', '/')
-
-    # Encode location safely for URL
-    safe_location = quote(location)
-
-    # Geocode location
-    geocode_url = f"https://nominatim.openstreetmap.org/search?q={safe_location}&format=json&limit=1"
-    response = requests.get(geocode_url)
-    if response.status_code != 200 or not response.json():
-        return jsonify({"error": "Location not found"}), 400
-
-    geo_data = response.json()[0]
-    lat = geo_data['lat']
-    lon = geo_data['lon']
-
-    # Parse datetime
-    year, month, day = safe_date.split('/')
+    # Convert date to correct format for Flatlib
+    year, month, day = date.split('-')
     hour, minute = time.split(':')
 
-    dt = Datetime(year, month, day, hour, minute, '+00:00')  # UTC by default
-    pos = GeoPos(lat, lon)
+    # Call Google Geocoding API
+    geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location}&key={GOOGLE_API_KEY}"
+    response = requests.get(geo_url)
+    geo_data = response.json()
+
+    if not geo_data['results']:
+        return jsonify({"error": "Location not found"}), 400
+
+    lat = geo_data['results'][0]['geometry']['location']['lat']
+    lon = geo_data['results'][0]['geometry']['location']['lng']
+
+    # Create Flatlib DateTime and GeoPos
+    dt = Datetime(year, month, day, hour, minute, '+10:00')  # Assuming +10:00 timezone for now
+    pos = GeoPos(str(lat), str(lon))
+
+    # Create the Chart
     chart = Chart(dt, pos)
 
-    # Get core planets
+    # Gather key astro points
     sun = chart.get('SUN')
     moon = chart.get('MOON')
     mercury = chart.get('MER')
@@ -105,7 +69,7 @@ def get_astrology_chart():
     ascendant = chart.get('ASC')
     midheaven = chart.get('MC')
 
-    # Build astrology response
+    # Build astro data
     astro_data = {
         "name": name,
         "date": date,
@@ -122,10 +86,10 @@ def get_astrology_chart():
         "neptune_sign": neptune.sign,
         "pluto_sign": pluto.sign,
         "rising_sign": ascendant.sign,
-        "midheaven_sign": midheaven.sign,
+        "midheaven_sign": midheaven.sign
     }
 
-    # Calculate dominant element and mode
+    # Calculate dominant Element and Mode
     placements = [
         sun.sign, moon.sign, mercury.sign, venus.sign, mars.sign,
         jupiter.sign, saturn.sign, uranus.sign, neptune.sign, pluto.sign,
@@ -150,17 +114,5 @@ def get_astrology_chart():
 
     return jsonify(astro_data)
 
-@app.route('/moonphase', methods=['GET'])
-def get_moon_phase():
-    date = request.args.get('date')
-
-    moon_data = {
-        "date": date,
-        "moon_phase": "New Moon"  # Placeholder
-    }
-
-    return jsonify(moon_data)
-
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=10000)
-
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=10000)
