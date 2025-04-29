@@ -1,4 +1,4 @@
-# Add Dockerfile to build custom server
+Add Dockerfile to build custom server
 # Base image
 FROM python:3.11-slim
 
@@ -17,9 +17,9 @@ WORKDIR /app
 # Copy requirements file first to leverage caching
 COPY requirements.txt .
 
-# Install Python packages
+# Install Python packages, explicitly avoiding Poetry
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt --no-cache-dir
 
 # Copy project files
 COPY . .
@@ -27,6 +27,7 @@ COPY . .
 # Set environment variables
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
+ENV POETRY_VERSION=none
 
 # Run the app with Gunicorn
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
