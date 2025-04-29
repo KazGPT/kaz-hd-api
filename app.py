@@ -80,49 +80,44 @@ def get_astrology_chart():
     date = request.args.get('date').replace('-', '/')
     time = request.args.get('time')
     location = request.args.get('location')
-
     # Convert 12-hour AM/PM time to 24-hour format
     try:
         time_24hr = datetime.strptime(time.strip(), "%I:%M %p").strftime("%H:%M")
     except ValueError:
         return jsonify({"error": "Invalid time format. Please use HH:MM AM/PM."}), 400
-
     # Geocoding
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={quote(location)}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
-
     if not geo_data.get('results'):
-        return jsonify({"error": "Location not found"}), 400
-
-    lat = geo_data['results'][0]['geometry']['location']['lat']
+        return jsonify({"error": "Location not found. Please include city, state, country."}), 400
+    lat = geo_data['results listeners'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
-
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
     dt = Datetime(date, time_24hr, '+00:00')
-    chart = Chart(dt, pos, IDs=['SUN', 'MOON', 'MER', 'VEN', 'MAR', 'JUP', 'SAT', 'URA', 'NEP', 'PLU', 'ASC', 'MC'])
-
-
+    try:
+        chart = Chart(dt, pos, IDs=['SUN', 'MOON', 'MER', 'VEN', 'MAR', 'JUP', 'SAT', 'URA', 'NEP', 'PLU', 'ASC', 'MC'])
+    except Exception as e:
+        return jsonify({"error": f"Chart creation failed: {str(e)}"}), 500
     # Astro Data
     astro_data = {
         "name": name,
         "date": date,
         "time": time,
         "location": location,
-        "sun_sign": chart.getObject('SUN').sign,
-        "moon_sign": chart.getObject('MOON').sign,
-        "mercury_sign": chart.getObject('MER').sign,
-        "venus_sign": chart.getObject('VEN').sign,
-        "mars_sign": chart.getObject('MAR').sign,
-        "jupiter_sign": chart.getObject('JUP').sign,
-        "saturn_sign": chart.getObject('SAT').sign,
-        "uranus_sign": chart.getObject('URA').sign,
-        "neptune_sign": chart.getObject('NEP').sign,
-        "pluto_sign": chart.getObject('PLU').sign,
-        "rising_sign": chart.getObject('ASC').sign,
-        "midheaven_sign": chart.getObject('MC').sign
+        "sun_sign": chart.getObject('SUN').sign if chart.getObject('SUN') else None,
+        "moon_sign": chart.getObject('MOON').sign if chart.getObject('MOON') else None,
+        "mercury_sign": chart.getObject('MER').sign if chart.getObject('MER') else None,
+        "venus_sign": chart.getObject('VEN').sign if chart.getObject('VEN') else None,
+        "mars_sign": chart.getObject('MAR').sign if chart.getObject('MAR') else None,
+        "jupiter_sign": chart.getObject('JUP').sign if chart.getObject('JUP') else None,
+        "saturn_sign": chart.getObject('SAT').sign if chart.getObject('SAT') else None,
+        "uranus_sign": chart.getObject('URA').sign if chart.getObject('URA') else None,
+        "neptune_sign": chart.getObject('NEP').sign if chart.getObject('NEP') else None,
+        "pluto_sign": chart.getObject('PLU').sign if chart.getObject('PLU') else None,
+        "rising_sign": chart.getObject('ASC').sign if chart.getObject('ASC') else None,
+        "midheaven_sign": chart.getObject('MC').sign if chart.getObject('MC') else None
     }
-
     # Correct placements extraction
     placements = [
         astro_data['sun_sign'],
@@ -138,23 +133,19 @@ def get_astrology_chart():
         astro_data['rising_sign'],
         astro_data['midheaven_sign']
     ]
-
     # Count Elements and Modes
     element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
     mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
-
     for sign in placements:
-        if sign:  # <--- Added safe check here!
+        if sign:  # Added safe check
             sign_upper = sign.upper()
             if sign_upper in ELEMENTS:
                 element_counts[ELEMENTS[sign_upper]] += 1
             if sign_upper in MODES:
                 mode_counts[MODES[sign_upper]] += 1
-
-
     astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
-
+    
     return jsonify(astro_data)
 
 @app.route('/moonphase', methods=['GET'])
