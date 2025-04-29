@@ -89,6 +89,8 @@ def get_astrology_chart():
         }
     except Exception as e:
         return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
+    
+    # Equal weighting for all planets, Ascendant, and Midheaven
     placements = [
         astro_data['sun_sign'],
         astro_data['moon_sign'],
@@ -112,7 +114,22 @@ def get_astrology_chart():
                 element_counts[ELEMENTS[sign_upper]] += 1
             if sign_upper in MODES:
                 mode_counts[MODES[sign_upper]] += 1
-    astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
+    
+    # Tiebreaker: Use Sun, Moon, Ascendant
+    element_counts_list = [(elem, count) for elem, count in element_counts.items()]
+    element_counts_list.sort(key=lambda x: x[1], reverse=True)
+    if element_counts_list[0][1] == element_counts_list[1][1]:  # Tie for first place
+        tie_breaker = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
+        for sign in [astro_data['sun_sign'], astro_data['moon_sign'], astro_data['rising_sign']]:
+            if sign:
+                sign_upper = sign.upper()
+                if sign_upper in ELEMENTS:
+                    tie_breaker[ELEMENTS[sign_upper]] += 1
+        dominant_element = max(tie_breaker, key=tie_breaker.get)
+    else:
+        dominant_element = element_counts_list[0][0]
+    
+    astro_data['dominant_element'] = dominant_element
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
     return jsonify(astro_data)
 
