@@ -95,8 +95,9 @@ def get_astrology_chart():
         return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
     dt = Datetime(date, time_24hr, '+00:00')
     try:
-        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Asc', 'MC'])
+        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
         available_objects = [obj.id for obj in chart.objects]
+        available_angles = [angle.id for angle in chart.angles]
         astro_data = {
             "name": name,
             "date": date,
@@ -114,7 +115,8 @@ def get_astrology_chart():
             "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
             "rising_sign": chart.getAngle('Asc').sign if chart.getAngle('Asc') else None,
             "midheaven_sign": chart.getAngle('MC').sign if chart.getAngle('MC') else None,
-            "available_objects": available_objects
+            "available_objects": available_objects,
+            "available_angles": available_angles
         }
     except Exception as e:
         return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
