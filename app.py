@@ -95,11 +95,55 @@ def get_astrology_chart():
         return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
     dt = Datetime(date, time_24hr, '+00:00')
     try:
-        chart = Chart(dt, pos, IDs=['Sun', 'Moon'])
+        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Asc', 'MC'])
         available_objects = [obj.id for obj in chart.objects]
-        return jsonify({"message": "Chart created", "available_objects": available_objects})
+        astro_data = {
+            "name": name,
+            "date": date,
+            "time": time,
+            "location": location,
+            "sun_sign": chart.getObject('Sun').sign if chart.getObject('Sun') else None,
+            "moon_sign": chart.getObject('Moon').sign if chart.getObject('Moon') else None,
+            "mercury_sign": chart.getObject('Mercury').sign if chart.getObject('Mercury') else None,
+            "venus_sign": chart.getObject('Venus').sign if chart.getObject('Venus') else None,
+            "mars_sign": chart.getObject('Mars').sign if chart.getObject('Mars') else None,
+            "jupiter_sign": chart.getObject('Jupiter').sign if chart.getObject('Jupiter') else None,
+            "saturn_sign": chart.getObject('Saturn').sign if chart.getObject('Saturn') else None,
+            "uranus_sign": chart.getObject('Uranus').sign if chart.getObject('Uranus') else None,
+            "neptune_sign": chart.getObject('Neptune').sign if chart.getObject('Neptune') else None,
+            "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
+            "rising_sign": chart.getAngle('Asc').sign if chart.getAngle('Asc') else None,
+            "midheaven_sign": chart.getAngle('MC').sign if chart.getAngle('MC') else None,
+            "available_objects": available_objects
+        }
     except Exception as e:
         return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
+    placements = [
+        astro_data['sun_sign'],
+        astro_data['moon_sign'],
+        astro_data['mercury_sign'],
+        astro_data['venus_sign'],
+        astro_data['mars_sign'],
+        astro_data['jupiter_sign'],
+        astro_data['saturn_sign'],
+        astro_data['uranus_sign'],
+        astro_data['neptune_sign'],
+        astro_data['pluto_sign'],
+        astro_data['rising_sign'],
+        astro_data['midheaven_sign']
+    ]
+    element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
+    mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
+    for sign in placements:
+        if sign:
+            sign_upper = sign.upper()
+            if sign_upper in ELEMENTS:
+                element_counts[ELEMENTS[sign_upper]] += 1
+            if sign_upper in MODES:
+                mode_counts[MODES[sign_upper]] += 1
+    astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
+    astro_data['mode'] = max(mode_counts, key=mode_counts.get)
+    return jsonify(astro_data)
 
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
