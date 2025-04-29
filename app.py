@@ -87,14 +87,19 @@ def get_astrology_chart():
         return jsonify({"error": "Location not found. Please include city, state, country."}), 400
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
-    pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
+    lat_dms = decimal_to_dms(lat)
+    lon_dms = decimal_to_dms(lon)
+    try:
+        pos = GeoPos(lat_dms, lon_dms)
+    except Exception as e:
+        return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
     dt = Datetime(date, time_24hr, '+00:00')
     try:
-        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Asc', 'MC'])
+        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Ascendant', 'MC'])
         if not chart.getObject('Sun'):
             return jsonify({"error": "Failed to retrieve Sun data. Available objects: " + str([obj.id for obj in chart.objects])}), 500
     except Exception as e:
-        return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat: {lat}, Lon: {lon}"}), 500
+        return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
     astro_data = {
         "name": name,
         "date": date,
@@ -110,7 +115,7 @@ def get_astrology_chart():
         "uranus_sign": chart.getObject('Uranus').sign if chart.getObject('Uranus') else None,
         "neptune_sign": chart.getObject('Neptune').sign if chart.getObject('Neptune') else None,
         "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
-        "rising_sign": chart.getObject('Asc').sign if chart.getObject('Asc') else None,
+        "rising_sign": chart.getObject('Ascendant').sign if chart.getObject('Ascendant') else None,
         "midheaven_sign": chart.getObject('MC').sign if chart.getObject('MC') else None
     }
     placements = [
