@@ -65,6 +65,14 @@ def get_astrology_chart():
         available_angles = [angle.id for angle in chart.angles]
         asc = chart.getAngle('Asc')
         mc = chart.getAngle('MC')
+        # Get 6th House sign
+        sixth_house = chart.getHouse(6)
+        sixth_house_sign = sixth_house.sign if sixth_house else None
+        # Get Ascendant ruler (planet ruling the Rising sign)
+        asc_ruler = None
+        if asc.sign == 'Capricorn':
+            asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
+        asc_ruler_sign = asc_ruler.sign if asc_ruler else None
         astro_data = {
             "name": name,
             "date": date,
@@ -84,6 +92,8 @@ def get_astrology_chart():
             "rising_sign_degree": asc.signlon if asc else None,
             "midheaven_sign": mc.sign if mc else None,
             "midheaven_sign_degree": mc.signlon if mc else None,
+            "sixth_house_sign": sixth_house_sign,
+            "ascendant_ruler_sign": asc_ruler_sign,
             "available_objects": available_objects,
             "available_angles": available_angles
         }
@@ -115,17 +125,16 @@ def get_astrology_chart():
             if sign_upper in MODES:
                 mode_counts[MODES[sign_upper]] += 1
     
-    # Tiebreaker: Use Sun, Moon, Ascendant
+    # Tiebreaker: Prioritize Moon's element for Medical Astrology
     element_counts_list = [(elem, count) for elem, count in element_counts.items()]
     element_counts_list.sort(key=lambda x: x[1], reverse=True)
     if element_counts_list[0][1] == element_counts_list[1][1]:  # Tie for first place
-        tie_breaker = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
-        for sign in [astro_data['sun_sign'], astro_data['moon_sign'], astro_data['rising_sign']]:
-            if sign:
-                sign_upper = sign.upper()
-                if sign_upper in ELEMENTS:
-                    tie_breaker[ELEMENTS[sign_upper]] += 1
-        dominant_element = max(tie_breaker, key=tie_breaker.get)
+        moon_sign = astro_data['moon_sign']
+        if moon_sign:
+            moon_sign_upper = moon_sign.upper()
+            dominant_element = ELEMENTS[moon_sign_upper]  # Moon's element (Cancer → Water)
+        else:
+            dominant_element = element_counts_list[0][0]
     else:
         dominant_element = element_counts_list[0][0]
     
