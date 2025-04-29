@@ -65,14 +65,6 @@ def get_astrology_chart():
         available_angles = [angle.id for angle in chart.angles]
         asc = chart.getAngle('Asc')
         mc = chart.getAngle('MC')
-        # Get 6th House sign
-        sixth_house = chart.getHouse(6)
-        sixth_house_sign = sixth_house.sign if sixth_house else None
-        # Get Ascendant ruler (planet ruling the Rising sign)
-        asc_ruler = None
-        if asc.sign == 'Capricorn':
-            asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
-        asc_ruler_sign = asc_ruler.sign if asc_ruler else None
         astro_data = {
             "name": name,
             "date": date,
@@ -92,8 +84,6 @@ def get_astrology_chart():
             "rising_sign_degree": asc.signlon if asc else None,
             "midheaven_sign": mc.sign if mc else None,
             "midheaven_sign_degree": mc.signlon if mc else None,
-            "sixth_house_sign": sixth_house_sign,
-            "ascendant_ruler_sign": asc_ruler_sign,
             "available_objects": available_objects,
             "available_angles": available_angles
         }
@@ -134,7 +124,7 @@ def get_astrology_chart():
             moon_sign_upper = moon_sign.upper()
             dominant_element = ELEMENTS[moon_sign_upper]  # Moon's element (Cancer → Water)
         else:
-            dominant_element = element_counts_list[0][0]
+            dominant_element = element_counts_list[0][0]  # Fallback to highest count
     else:
         dominant_element = element_counts_list[0][0]
     
