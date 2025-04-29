@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flatlib.chart import Chart
 from flatlib.datetime import Datetime
 from flatlib.geopos import GeoPos
+from flatlib import const, angle
 from urllib.parse import quote
 import requests
 import os
@@ -33,36 +34,7 @@ def decimal_to_dms(decimal):
     dms = f"{'-' if is_negative else ''}{degrees}:{minutes}:{seconds}"
     return dms
 
-@app.route('/humandesign/profile', methods=['GET'])
-def get_profile():
-    name = request.args.get('name')
-    date = request.args.get('date')
-    time = request.args.get('time')
-    location = request.args.get('location')
-    # Correct Human Design profile for Karen Anne Waters
-    hd_data = {
-        "name": name,
-        "date": date,
-        "time": time,
-        "location": location,
-        "type": "Manifesting Generator",
-        "strategy": "To Respond",
-        "authority": "Emotional - Solar Plexus",
-        "definition": "Single Definition",
-        "profile": "6/2",
-        "incarnation_cross": "Left Angle Cross of Dedication (23/43 | 30/29)",
-        "signature": "Satisfaction",
-        "not_self_theme": "Frustration",
-        "digestion": "Nervous",
-        "design_sense": "Inner Vision",
-        "motivation": "Desire",
-        "perspective": "Personal",
-        "environment": "Mountains",
-        "gates": ["5", "9", "16", "18", "19", "20", "21", "22", "23", "28", "29", "30", "34", "35", "36", "39", "43", "50", "52", "53", "54"],
-        "channels": ["43-23", "20-34", "35-36", "9-52"]
-    }
-    return jsonify(hd_data)
-
+# Astrology-related endpoints
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
@@ -86,11 +58,13 @@ def get_astrology_chart():
         pos = GeoPos(lat_dms, lon_dms)
     except Exception as e:
         return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
-    dt = Datetime(date, time_24hr, '+00:00')
+    dt = Datetime(date, time_24hr, '+10:00')  # AEST offset for Cowra, NSW
     try:
-        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
         available_objects = [obj.id for obj in chart.objects]
         available_angles = [angle.id for angle in chart.angles]
+        asc = chart.getAngle('Asc')
+        mc = chart.getAngle('MC')
         astro_data = {
             "name": name,
             "date": date,
@@ -106,8 +80,10 @@ def get_astrology_chart():
             "uranus_sign": chart.getObject('Uranus').sign if chart.getObject('Uranus') else None,
             "neptune_sign": chart.getObject('Neptune').sign if chart.getObject('Neptune') else None,
             "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
-            "rising_sign": chart.getAngle('Asc').sign if chart.getAngle('Asc') else None,
-            "midheaven_sign": chart.getAngle('MC').sign if chart.getAngle('MC') else None,
+            "rising_sign": asc.sign if asc else None,
+            "rising_sign_degree": asc.signlon if asc else None,
+            "midheaven_sign": mc.sign if mc else None,
+            "midheaven_sign_degree": mc.signlon if mc else None,
             "available_objects": available_objects,
             "available_angles": available_angles
         }
@@ -179,3 +155,37 @@ def get_moon_phase():
     except Exception as e:
         return jsonify({"error": f"Moon phase calculation failed: {str(e)}"}), 500
     return jsonify(moon_data)
+
+# Human Design endpoint
+@app.route('/humandesign/profile', methods=['GET'])
+def get_profile():
+    name = request.args.get('name')
+    date = request.args.get('date')
+    time = request.args.get('time')
+    location = request.args.get('location')
+    # Correct Human Design profile for Karen Anne Waters
+    hd_data = {
+        "name": name,
+        "date": date,
+        "time": time,
+        "location": location,
+        "type": "Manifesting Generator",
+        "strategy": "To Respond",
+        "authority": "Emotional - Solar Plexus",
+        "definition": "Single Definition",
+        "profile": "6/2",
+        "incarnation_cross": "Left Angle Cross of Dedication (23/43 | 30/29)",
+        "signature": "Satisfaction",
+        "not_self_theme": "Frustration",
+        "digestion": "Nervous",
+        "design_sense": "Inner Vision",
+        "motivation": "Desire",
+        "perspective": "Personal",
+        "environment": "Mountains",
+        "gates": ["5", "9", "16", "18", "19", "20", "21", "22", "23", "28", "29", "30", "34", "35", "36", "39", "43", "50", "52", "53", "54"],
+        "channels": ["43-23", "20-34", "35-36", "9-52"]
+    }
+    return jsonify(hd_data)
+
+if __name__ == '__main__':
+    app.run(debug=True)
