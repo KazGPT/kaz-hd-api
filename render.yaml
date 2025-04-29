@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: kaz-hd-api
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: POETRY_VERSION
+        value: none
