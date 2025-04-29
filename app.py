@@ -143,12 +143,39 @@ def get_astrology_chart():
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
-    moon_data = {
-        "date": date,
-        "moon_phase": "New Moon"  # Placeholder for now
-    }
+    # Create a chart for the given date at 00:00 UTC
+    dt = Datetime(date.replace('-', '/'), '00:00', '+00:00')
+    pos = GeoPos('0:0:0', '0:0:0')  # Location doesn’t affect Moon phase
+    try:
+        chart = Chart(dt, pos, IDs=['Sun', 'Moon'])
+        sun = chart.getObject('Sun')
+        moon = chart.getObject('Moon')
+        # Calculate angular distance between Sun and Moon
+        dist = angle.distance(sun.lon, moon.lon)
+        # Log the distance for debugging
+        print(f"Sun longitude: {sun.lon}, Moon longitude: {moon.lon}, Distance: {dist}")
+        # Refine phase boundaries
+        if 0 <= dist <= 22.5 or 337.5 < dist <= 360:
+            phase = "New Moon"
+        elif 22.5 < dist <= 67.5:
+            phase = "Waxing Crescent"
+        elif 67.5 < dist <= 112.5:
+            phase = "First Quarter"
+        elif 112.5 < dist <= 157.5:
+            phase = "Waxing Gibbous"
+        elif 157.5 < dist <= 202.5:
+            phase = "Full Moon"
+        elif 202.5 < dist <= 247.5:
+            phase = "Waning Gibbous"
+        elif 247.5 < dist <= 292.5:
+            phase = "Last Quarter"
+        else:
+            phase = "Waning Crescent"
+        moon_data = {
+            "date": date,
+            "moon_phase": phase,
+            "angular_distance": dist  # For debugging
+        }
+    except Exception as e:
+        return jsonify({"error": f"Moon phase calculation failed: {str(e)}"}), 500
     return jsonify(moon_data)
-
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=10000)
-
