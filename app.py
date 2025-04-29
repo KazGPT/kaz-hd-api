@@ -148,12 +148,12 @@ def get_moon_phase():
     pos = GeoPos('0:0:0', '0:0:0')  # Location doesn’t affect Moon phase
     try:
         chart = Chart(dt, pos, IDs=['Sun', 'Moon'])
-        sun = chart.getObject('Sun')
-        moon = chart.getObject('Moon')
+        sun_lon = chart.getObject('Sun').lon
+        moon_lon = chart.getObject('Moon').lon
         # Calculate angular distance between Sun and Moon
-        dist = angle.distance(sun.lon, moon.lon)
-        # Log the distance for debugging
-        print(f"Sun longitude: {sun.lon}, Moon longitude: {moon.lon}, Distance: {dist}")
+        dist = angle.distance(sun_lon, moon_lon)
+        # Log for debugging
+        print(f"Sun longitude: {sun_lon}, Moon longitude: {moon_lon}, Distance: {dist}")
         # Refine phase boundaries
         if 0 <= dist <= 22.5 or 337.5 < dist <= 360:
             phase = "New Moon"
