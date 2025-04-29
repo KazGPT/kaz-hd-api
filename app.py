@@ -91,7 +91,7 @@ def get_astrology_chart():
     geo_data = response.json()
     if not geo_data.get('results'):
         return jsonify({"error": "Location not found. Please include city, state, country."}), 400
-    lat = geo_data['results listeners'][0]['geometry']['location']['lat']
+    lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
     pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
     dt = Datetime(date, time_24hr, '+00:00')
