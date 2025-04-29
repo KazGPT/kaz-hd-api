@@ -65,12 +65,24 @@ def get_astrology_chart():
         available_angles = [angle.id for angle in chart.angles]
         asc = chart.getAngle('Asc')
         mc = chart.getAngle('MC')
-        # Get 6th House sign
-        sixth_house = chart.getHouse(6)
-        sixth_house_sign = sixth_house.sign if sixth_house else None
+        # Get 6th House sign with fallback
+        sixth_house_sign = None
+        try:
+            sixth_house = chart.getHouse(6)
+            sixth_house_sign = sixth_house.sign if sixth_house else None
+        except Exception as house_error:
+            print(f"Failed to get 6th House with Placidus: {str(house_error)}")
+            # Fallback to Equal House system
+            try:
+                chart = Chart(dt, pos, hsys=const.HOUSES_EQUAL, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+                sixth_house = chart.getHouse(6)
+                sixth_house_sign = sixth_house.sign if sixth_house else None
+                print("Successfully used Equal House system as fallback")
+            except Exception as fallback_error:
+                print(f"Fallback to Equal House failed: {str(fallback_error)}")
         # Get Ascendant ruler (planet ruling the Rising sign)
         asc_ruler = None
-        if asc.sign == 'Capricorn':
+        if asc and asc.sign == 'Capricorn':
             asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
         asc_ruler_sign = asc_ruler.sign if asc_ruler else None
         astro_data = {
