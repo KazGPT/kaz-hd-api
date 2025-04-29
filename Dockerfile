@@ -1,5 +1,4 @@
-Add Dockerfile to build custom server
-# Base image
+# Add Dockerfile to build custom server
 FROM python:3.11-slim
 
 # Install system dependencies for Swiss Ephemeris
@@ -14,12 +13,12 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements file first to leverage caching
+# Copy requirements file
 COPY requirements.txt .
 
-# Install Python packages, explicitly avoiding Poetry
+# Install Python packages, explicitly install gunicorn
 RUN pip install --upgrade pip
-RUN pip install -r requirements.txt --no-cache-dir
+RUN pip install gunicorn==22.0.0 -r requirements.txt --no-cache-dir
 
 # Copy project files
 COPY . .
