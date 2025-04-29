@@ -19,6 +19,8 @@ COPY requirements.txt .
 # Install Python packages, explicitly install gunicorn
 RUN pip install --upgrade pip
 RUN pip install gunicorn==22.0.0 -r requirements.txt --no-cache-dir
+# Debug: Verify gunicorn installation
+RUN gunicorn --version
 
 # Copy project files
 COPY . .
