@@ -39,7 +39,7 @@ def get_profile():
     date = request.args.get('date')
     time = request.args.get('time')
     location = request.args.get('location')
-    # Simulated Human Design profile
+    # Correct Human Design profile for Karen Anne Waters
     hd_data = {
         "name": name,
         "date": date,
@@ -48,25 +48,18 @@ def get_profile():
         "type": "Manifesting Generator",
         "strategy": "To Respond",
         "authority": "Emotional - Solar Plexus",
+        "definition": "Single Definition",
         "profile": "6/2",
-        "definition": "Split Definition",
-        "incarnation_cross": "Right Angle Cross of the Sleeping Phoenix",
+        "incarnation_cross": "Left Angle Cross of Dedication (23/43 | 30/29)",
         "signature": "Satisfaction",
         "not_self_theme": "Frustration",
         "digestion": "Nervous",
-        "motivation": "Hope",
+        "design_sense": "Inner Vision",
+        "motivation": "Desire",
         "perspective": "Personal",
         "environment": "Mountains",
-        "gates": ["34", "20", "10", "57"],
-        "channels": ["34-20", "10-57"],
-        "defined_centres": ["Sacral", "G", "Throat"],
-        "undefined_centres": ["Root", "Solar Plexus", "Heart"],
-        "sun_sign": "Taurus",
-        "moon_sign": "Cancer",
-        "rising_sign": "Leo",
-        "midheaven": "Aquarius",
-        "dominant_element": "Earth",
-        "mode": "Fixed"
+        "gates": ["5", "9", "16", "18", "19", "20", "21", "22", "23", "28", "29", "30", "34", "35", "36", "39", "43", "50", "52", "53", "54"],
+        "channels": ["43-23", "20-34", "35-36", "9-52"]
     }
     return jsonify(hd_data)
 
