@@ -37,51 +37,80 @@ def decimal_to_dms(decimal):
 # Astrology-related endpoints
 @app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
+    print("Starting /astrology/chart endpoint")
     name = request.args.get('name')
     date = request.args.get('date').replace('-', '/')
     time = request.args.get('time')
     location = request.args.get('location')
+    print(f"Received inputs: name={name}, date={date}, time={time}, location={location}")
+    
     try:
         time_24hr = datetime.strptime(time.strip(), "%I:%M %p").strftime("%H:%M")
-    except ValueError:
+        print(f"Converted time to 24hr format: {time_24hr}")
+    except ValueError as e:
+        print(f"Time conversion error: {str(e)}")
         return jsonify({"error": "Invalid time format. Please use HH:MM AM/PM."}), 400
+    
     geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={quote(location)}&key={GOOGLE_API_KEY}"
     response = requests.get(geo_url)
     geo_data = response.json()
     if not geo_data.get('results'):
+        print("Geocoding failed: Location not found")
         return jsonify({"error": "Location not found. Please include city, state, country."}), 400
+    
     lat = geo_data['results'][0]['geometry']['location']['lat']
     lon = geo_data['results'][0]['geometry']['location']['lng']
     lat_dms = decimal_to_dms(lat)
     lon_dms = decimal_to_dms(lon)
+    print(f"Geocoded location: lat={lat}, lon={lon}, lat_dms={lat_dms}, lon_dms={lon_dms}")
+    
     try:
         pos = GeoPos(lat_dms, lon_dms)
+        print("GeoPos created successfully")
     except Exception as e:
+        print(f"GeoPos creation failed: {str(e)}")
         return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
+    
     dt = Datetime(date, time_24hr, '+10:00')  # AEST offset for Cowra, NSW
+    print(f"Datetime created: {date} {time_24hr} +10:00")
+    
     try:
-        # Create chart without specifying a house system (we'll calculate 6th House manually)
-        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+        # Use Equal House system to ensure Ascendant and Midheaven work
+        print("Creating chart with Equal House system")
+        chart = Chart(dt, pos, hsys=const.HOUSES_EQUAL, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+        print("Chart created successfully")
     except Exception as e:
+        print(f"Chart creation failed: {str(e)}")
         return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
 
     available_objects = [obj.id for obj in chart.objects]
     available_angles = [angle.id for angle in chart.angles]
+    print(f"Available objects: {available_objects}")
+    print(f"Available angles: {available_angles}")
+    
     asc = chart.getAngle('Asc')
     mc = chart.getAngle('MC')
+    print(f"Ascendant: {asc.sign if asc else None}, Midheaven: {mc.sign if mc else None}")
+    
     # Calculate 6th House sign manually based on Ascendant
     sixth_house_sign = None
     if asc and asc.sign:
-        signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
-        asc_index = signs.index(asc.sign.upper())
-        sixth_house_index = (asc_index + 5) % 12  # 6th House is 5 signs after Ascendant (0-based index)
-        sixth_house_sign = signs[sixth_house_index].capitalize()
-        print(f"Manually calculated 6th House sign: {sixth_house_sign}")
+        signs = ['ARIES', 'TAURUS', 'GEMINI', 'CANCER', 'LEO', 'VIRGO', 'LIBRA', 'SCORPIO', 'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS', 'PISCES']
+        try:
+            asc_index = signs.index(asc.sign.upper())
+            sixth_house_index = (asc_index + 5) % 12  # 6th House is 5 signs after Ascendant (0-based index)
+            sixth_house_sign = signs[sixth_house_index].capitalize()
+            print(f"Manually calculated 6th House sign: {sixth_house_sign}")
+        except ValueError as e:
+            print(f"Error calculating 6th House sign: {str(e)}")
+    
     # Get Ascendant ruler (planet ruling the Rising sign)
     asc_ruler = None
     if asc and asc.sign == 'Capricorn':
         asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
     asc_ruler_sign = asc_ruler.sign if asc_ruler else None
+    print(f"Ascendant ruler sign: {asc_ruler_sign}")
+    
     astro_data = {
         "name": name,
         "date": date,
@@ -107,6 +136,7 @@ def get_astrology_chart():
         "available_angles": available_angles
     }
     
+    print("Calculating dominant element and mode")
     # Equal weighting for all planets, Ascendant, and Midheaven
     placements = [
         astro_data['sun_sign'],
@@ -147,7 +177,9 @@ def get_astrology_chart():
     
     astro_data['dominant_element'] = dominant_element
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
+    print("Returning astro_data")
     return jsonify(astro_data)
+    
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
