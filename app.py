@@ -59,58 +59,68 @@ def get_astrology_chart():
     except Exception as e:
         return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
     dt = Datetime(date, time_24hr, '+10:00')  # AEST offset for Cowra, NSW
+    chart = None
     try:
+        # First attempt with Placidus houses
+        print("Attempting to create chart with Placidus houses")
         chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
-        available_objects = [obj.id for obj in chart.objects]
-        available_angles = [angle.id for angle in chart.angles]
-        asc = chart.getAngle('Asc')
-        mc = chart.getAngle('MC')
-        # Get 6th House sign with fallback
-        sixth_house_sign = None
-        try:
-            sixth_house = chart.getHouse(6)
-            sixth_house_sign = sixth_house.sign if sixth_house else None
-        except Exception as house_error:
-            print(f"Failed to get 6th House with Placidus: {str(house_error)}")
-            # Fallback to Equal House system
-            try:
-                chart = Chart(dt, pos, hsys=const.HOUSES_EQUAL, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
-                sixth_house = chart.getHouse(6)
-                sixth_house_sign = sixth_house.sign if sixth_house else None
-                print("Successfully used Equal House system as fallback")
-            except Exception as fallback_error:
-                print(f"Fallback to Equal House failed: {str(fallback_error)}")
-        # Get Ascendant ruler (planet ruling the Rising sign)
-        asc_ruler = None
-        if asc and asc.sign == 'Capricorn':
-            asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
-        asc_ruler_sign = asc_ruler.sign if asc_ruler else None
-        astro_data = {
-            "name": name,
-            "date": date,
-            "time": time,
-            "location": location,
-            "sun_sign": chart.getObject('Sun').sign if chart.getObject('Sun') else None,
-            "moon_sign": chart.getObject('Moon').sign if chart.getObject('Moon') else None,
-            "mercury_sign": chart.getObject('Mercury').sign if chart.getObject('Mercury') else None,
-            "venus_sign": chart.getObject('Venus').sign if chart.getObject('Venus') else None,
-            "mars_sign": chart.getObject('Mars').sign if chart.getObject('Mars') else None,
-            "jupiter_sign": chart.getObject('Jupiter').sign if chart.getObject('Jupiter') else None,
-            "saturn_sign": chart.getObject('Saturn').sign if chart.getObject('Saturn') else None,
-            "uranus_sign": chart.getObject('Uranus').sign if chart.getObject('Uranus') else None,
-            "neptune_sign": chart.getObject('Neptune').sign if chart.getObject('Neptune') else None,
-            "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
-            "rising_sign": asc.sign if asc else None,
-            "rising_sign_degree": asc.signlon if asc else None,
-            "midheaven_sign": mc.sign if mc else None,
-            "midheaven_sign_degree": mc.signlon if mc else None,
-            "sixth_house_sign": sixth_house_sign,
-            "ascendant_ruler_sign": asc_ruler_sign,
-            "available_objects": available_objects,
-            "available_angles": available_angles
-        }
+        print("Placidus chart created successfully")
     except Exception as e:
-        return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
+        print(f"Placidus chart creation failed: {str(e)}")
+        # Fallback to Equal House system
+        try:
+            print("Falling back to Equal House system")
+            chart = Chart(dt, pos, hsys=const.HOUSES_EQUAL, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+            print("Equal House chart created successfully")
+        except Exception as fallback_error:
+            return jsonify({"error": f"Chart creation failed with both Placidus and Equal House: {str(fallback_error)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
+
+    if chart is None:
+        return jsonify({"error": "Chart creation failed: Unable to create chart. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
+
+    # Proceed with chart data
+    available_objects = [obj.id for obj in chart.objects]
+    available_angles = [angle.id for angle in chart.angles]
+    asc = chart.getAngle('Asc')
+    mc = chart.getAngle('MC')
+    # Get 6th House sign safely
+    sixth_house_sign = None
+    try:
+        sixth_house = chart.getHouse(6)
+        sixth_house_sign = sixth_house.sign if sixth_house else None
+        print(f"6th House sign: {sixth_house_sign}")
+    except Exception as house_error:
+        print(f"Failed to get 6th House: {str(house_error)}")
+        sixth_house_sign = None
+    # Get Ascendant ruler (planet ruling the Rising sign)
+    asc_ruler = None
+    if asc and asc.sign == 'Capricorn':
+        asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
+    asc_ruler_sign = asc_ruler.sign if asc_ruler else None
+    astro_data = {
+        "name": name,
+        "date": date,
+        "time": time,
+        "location": location,
+        "sun_sign": chart.getObject('Sun').sign if chart.getObject('Sun') else None,
+        "moon_sign": chart.getObject('Moon').sign if chart.getObject('Moon') else None,
+        "mercury_sign": chart.getObject('Mercury').sign if chart.getObject('Mercury') else None,
+        "venus_sign": chart.getObject('Venus').sign if chart.getObject('Venus') else None,
+        "mars_sign": chart.getObject('Mars').sign if chart.getObject('Mars') else None,
+        "jupiter_sign": chart.getObject('Jupiter').sign if chart.getObject('Jupiter') else None,
+        "saturn_sign": chart.getObject('Saturn').sign if chart.getObject('Saturn') else None,
+        "uranus_sign": chart.getObject('Uranus').sign if chart.getObject('Uranus') else None,
+        "neptune_sign": chart.getObject('Neptune').sign if chart.getObject('Neptune') else None,
+        "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
+        "rising_sign": asc.sign if asc else None,
+        "rising_sign_degree": asc.signlon if asc else None,
+        "midheaven_sign": mc.sign if mc else None,
+        "midheaven_sign_degree": mc.signlon if mc else None,
+        "sixth_house_sign": sixth_house_sign,
+        "ascendant_ruler_sign": asc_ruler_sign,
+        "available_objects": available_objects,
+        "available_angles": available_angles
+    }
     
     # Equal weighting for all planets, Ascendant, and Midheaven
     placements = [
