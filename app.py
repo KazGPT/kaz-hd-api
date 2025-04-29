@@ -59,39 +59,24 @@ def get_astrology_chart():
     except Exception as e:
         return jsonify({"error": f"GeoPos creation failed: {str(e)}. Lat: {lat}, Lon: {lon}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 400
     dt = Datetime(date, time_24hr, '+10:00')  # AEST offset for Cowra, NSW
-    chart = None
     try:
-        # First attempt with Placidus houses
-        print("Attempting to create chart with Placidus houses")
-        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
-        print("Placidus chart created successfully")
+        # Create chart without specifying a house system (we'll calculate 6th House manually)
+        chart = Chart(dt, pos, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
     except Exception as e:
-        print(f"Placidus chart creation failed: {str(e)}")
-        # Fallback to Equal House system
-        try:
-            print("Falling back to Equal House system")
-            chart = Chart(dt, pos, hsys=const.HOUSES_EQUAL, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
-            print("Equal House chart created successfully")
-        except Exception as fallback_error:
-            return jsonify({"error": f"Chart creation failed with both Placidus and Equal House: {str(fallback_error)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
+        return jsonify({"error": f"Chart creation failed: {str(e)}. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
 
-    if chart is None:
-        return jsonify({"error": "Chart creation failed: Unable to create chart. Date: {date}, Time: {time_24hr}, Location: {location}, Lat DMS: {lat_dms}, Lon DMS: {lon_dms}"}), 500
-
-    # Proceed with chart data
     available_objects = [obj.id for obj in chart.objects]
     available_angles = [angle.id for angle in chart.angles]
     asc = chart.getAngle('Asc')
     mc = chart.getAngle('MC')
-    # Get 6th House sign safely
+    # Calculate 6th House sign manually based on Ascendant
     sixth_house_sign = None
-    try:
-        sixth_house = chart.getHouse(6)
-        sixth_house_sign = sixth_house.sign if sixth_house else None
-        print(f"6th House sign: {sixth_house_sign}")
-    except Exception as house_error:
-        print(f"Failed to get 6th House: {str(house_error)}")
-        sixth_house_sign = None
+    if asc and asc.sign:
+        signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+        asc_index = signs.index(asc.sign.upper())
+        sixth_house_index = (asc_index + 5) % 12  # 6th House is 5 signs after Ascendant (0-based index)
+        sixth_house_sign = signs[sixth_house_index].capitalize()
+        print(f"Manually calculated 6th House sign: {sixth_house_sign}")
     # Get Ascendant ruler (planet ruling the Rising sign)
     asc_ruler = None
     if asc and asc.sign == 'Capricorn':
@@ -163,7 +148,6 @@ def get_astrology_chart():
     astro_data['dominant_element'] = dominant_element
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
     return jsonify(astro_data)
-
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
