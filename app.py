@@ -5,10 +5,9 @@ from flatlib.geopos import GeoPos
 from urllib.parse import quote
 import requests
 import os
-from datetime import datetime  # <--- clean import, grouped properly
+from datetime import datetime
 
 app = Flask(__name__)
-
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 # Zodiac Elements and Modes
@@ -17,7 +16,6 @@ ELEMENTS = {
     'LEO': 'Fire', 'VIRGO': 'Earth', 'LIBRA': 'Air', 'SCORPIO': 'Water',
     'SAGITTARIUS': 'Fire', 'CAPRICORN': 'Earth', 'AQUARIUS': 'Air', 'PISCES': 'Water'
 }
-
 MODES = {
     'ARIES': 'Cardinal', 'TAURUS': 'Fixed', 'GEMINI': 'Mutable', 'CANCER': 'Cardinal',
     'LEO': 'Fixed', 'VIRGO': 'Mutable', 'LIBRA': 'Cardinal', 'SCORPIO': 'Fixed',
@@ -41,7 +39,6 @@ def get_profile():
     date = request.args.get('date')
     time = request.args.get('time')
     location = request.args.get('location')
-
     # Simulated Human Design profile
     hd_data = {
         "name": name,
@@ -71,34 +68,9 @@ def get_profile():
         "dominant_element": "Earth",
         "mode": "Fixed"
     }
-
     return jsonify(hd_data)
 
 @app.route('/astrology/chart', methods=['GET'])
-def get_astrology_chart():
-    name = request.args.get('name')
-    date = request.args.get('date').replace('-', '/')
-    time = request.args.get('time')
-    location = request.args.get('location')
-    # Convert 12-hour AM/PM time to 24-hour format
-    try:
-        time_24hr = datetime.strptime(time.strip(), "%I:%M %p").strftime("%H:%M")
-    except ValueError:
-        return jsonify({"error": "Invalid time format. Please use HH:MM AM/PM."}), 400
-    # Geocoding
-    geo_url = f"https://maps.googleapis.com/maps/api/geocode/json?address={quote(location)}&key={GOOGLE_API_KEY}"
-    response = requests.get(geo_url)
-    geo_data = response.json()
-    if not geo_data.get('results'):
-        return jsonify({"error": "Location not found. Please include city, state, country."}), 400
-    lat = geo_data['results'][0]['geometry']['location']['lat']
-    lon = geo_data['results'][0]['geometry']['location']['lng']
-    pos = GeoPos(decimal_to_dms(lat), decimal_to_dms(lon))
-    dt = Datetime(date, time_24hr, '+00:00')
-    try:
-        chart = Chart(dt, pos, IDs=['SUN', 'MOON', 'MER', 'VEN', 'MAR', 'JUP', 'SAT', 'URA', 'NEP', 'PLU', 'ASC', 'MC'])
-        if not chart.getObject('SUN'):
-            return jsonify({"error"@app.route('/astrology/chart', methods=['GET'])
 def get_astrology_chart():
     name = request.args.get('name')
     date = request.args.get('date').replace('-', '/')
@@ -171,7 +143,9 @@ def get_astrology_chart():
                 mode_counts[MODES[sign_upper]] += 1
     astro_data['dominant_element'] = max(element_counts, key=element_counts.get)
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
+    
     return jsonify(astro_data)
+
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
