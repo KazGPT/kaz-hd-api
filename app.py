@@ -96,10 +96,10 @@ def get_astrology_chart():
     # Get house cusps using Placidus
     houses = chart.houses
     house_cusps = []
-    for i in range(1, 13):
+    for i in range(0, 12):  # Flatlib uses 0-based indexing (0 to 11 for Houses 1 to 12)
         house = chart.getHouse(i)
         house_cusps.append({
-            "house": i,
+            "house": i + 1,  # Map index to house number (0 → House 1, 1 → House 2, etc.)
             "sign": house.sign,
             "degree": house.lon
         })
