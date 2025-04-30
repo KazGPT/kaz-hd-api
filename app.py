@@ -99,10 +99,11 @@ def get_astrology_chart():
     
     house_cusps = []
     try:
-        for i in range(len(houses.content)):  # Iterate over the actual houses list
-            house = houses.content[i]
+        for i in range(1, 13):  # Iterate over houses 1 to 12
+            house_key = f'House{i}'
+            house = houses.content[house_key]
             house_cusps.append({
-                "house": i + 1,  # House number (1 to 12)
+                "house": i,
                 "sign": house.sign,
                 "degree": house.lon
             })
