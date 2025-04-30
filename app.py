@@ -76,7 +76,7 @@ def get_astrology_chart():
     
     try:
         print("Creating chart with Placidus House system")
-        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy', 'Node', 'Lilith'])
+        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy', 'MeanNode', 'Lilith'])
         print("Chart created successfully")
     except Exception as e:
         print(f"Chart creation failed: {str(e)}")
@@ -129,7 +129,7 @@ def get_astrology_chart():
     
     # Assign planets to their houses
     planet_data = {}
-    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Node', 'Lilith']:
+    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith']:
         planet = chart.getObject(planet_id)
         if planet:
             planet_lon = planet.lon
@@ -201,7 +201,7 @@ def get_astrology_chart():
     }
     
     print("Calculating dominant element and mode for Medical Astrology")
-    # Base tally: Include planets, Ascendant, Midheaven, Node, Lilith, Chiron
+    # Base tally: Include planets, Ascendant, Midheaven, MeanNode, Lilith, Chiron
     placements = [
         astro_data['sun_sign'],
         astro_data['moon_sign'],
@@ -215,7 +215,7 @@ def get_astrology_chart():
         astro_data['pluto_sign'],
         astro_data['rising_sign'],
         astro_data['midheaven_sign'],
-        planet_data.get('Node', {}).get('sign'),
+        planet_data.get('MeanNode', {}).get('sign'),
         planet_data.get('Lilith', {}).get('sign'),
         planet_data.get('Chiron', {}).get('sign')
     ]
