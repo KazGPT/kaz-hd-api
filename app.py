@@ -76,7 +76,7 @@ def get_astrology_chart():
     
     try:
         print("Creating chart with Placidus House system")
-        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy', 'Node', 'Lilith'])
         print("Chart created successfully")
     except Exception as e:
         print(f"Chart creation failed: {str(e)}")
@@ -99,7 +99,7 @@ def get_astrology_chart():
     
     house_cusps = []
     try:
-        for i in range(1, 13):  # Iterate over houses 1 to 12
+        for i in range(1, 13):
             house_key = f'House{i}'
             house = houses.content[house_key]
             house_cusps.append({
@@ -119,7 +119,6 @@ def get_astrology_chart():
         for i in range(len(house_cusps)):
             start_lon = house_cusps[i]["degree"]
             end_lon = house_cusps[(i + 1) % len(house_cusps)]["degree"]
-            # Handle wraparound at 360°
             if end_lon < start_lon:
                 if planet_lon >= start_lon or planet_lon < end_lon:
                     return house_cusps[i]["house"]
@@ -130,7 +129,7 @@ def get_astrology_chart():
     
     # Assign planets to their houses
     planet_data = {}
-    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Node', 'Lilith']:
         planet = chart.getObject(planet_id)
         if planet:
             planet_lon = planet.lon
@@ -142,15 +141,15 @@ def get_astrology_chart():
             }
     print(f"Planet house placements: {planet_data}")
     
-    # Get the 5th and 6th House signs (for marketing voice and health/dream client)
+    # Get the 5th and 6th House signs
     fifth_house_sign = next((h["sign"] for h in house_cusps if h["house"] == 5), None)
     sixth_house_sign = next((h["sign"] for h in house_cusps if h["house"] == 6), None)
     print(f"5th House sign: {fifth_house_sign}, 6th House sign: {sixth_house_sign}")
     
-    # Get Ascendant ruler (planet ruling the Rising sign)
+    # Get Ascendant ruler
     asc_ruler = None
     if asc and asc.sign == 'Capricorn':
-        asc_ruler = chart.getObject('Saturn')  # Capricorn is ruled by Saturn
+        asc_ruler = chart.getObject('Saturn')
     asc_ruler_sign = asc_ruler.sign if asc_ruler else None
     print(f"Ascendant ruler sign: {asc_ruler_sign}")
     
@@ -202,7 +201,7 @@ def get_astrology_chart():
     }
     
     print("Calculating dominant element and mode")
-    # Base tally: Equal weighting for all planets, Ascendant, and Midheaven
+    # Base tally: Include planets, Ascendant, Midheaven, Node, Lilith, Chiron
     placements = [
         astro_data['sun_sign'],
         astro_data['moon_sign'],
@@ -215,7 +214,10 @@ def get_astrology_chart():
         astro_data['neptune_sign'],
         astro_data['pluto_sign'],
         astro_data['rising_sign'],
-        astro_data['midheaven_sign']
+        astro_data['midheaven_sign'],
+        planet_data.get('Node', {}).get('sign'),
+        planet_data.get('Lilith', {}).get('sign'),
+        planet_data.get('Chiron', {}).get('sign')
     ]
     element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
     mode_counts = {'Cardinal': 0, 'Fixed': 0, 'Mutable': 0}
@@ -227,17 +229,7 @@ def get_astrology_chart():
             if sign_upper in MODES:
                 mode_counts[MODES[sign_upper]] += 1
     
-    # Add weight for 5th House planets (marketing voice)
-    if astro_data['sun_house'] == 5 and astro_data['sun_sign']:
-        element_counts[ELEMENTS[astro_data['sun_sign'].upper()]] += 1
-    if astro_data['mercury_house'] == 5 and astro_data['mercury_sign']:
-        element_counts[ELEMENTS[astro_data['mercury_sign'].upper()]] += 1
-    
-    # Add 5th House cusp to the tally
-    if astro_data['fifth_house_sign']:
-        element_counts[ELEMENTS[astro_data['fifth_house_sign'].upper()]] += 1
-    
-    # Determine dominant element with Moon tiebreaker for Medical Astrology
+    # Determine dominant element with Moon tiebreaker
     element_counts_list = [(elem, count) for elem, count in element_counts.items()]
     element_counts_list.sort(key=lambda x: x[1], reverse=True)
     if element_counts_list[0][1] == element_counts_list[1][1]:
@@ -252,6 +244,8 @@ def get_astrology_chart():
     
     astro_data['dominant_element'] = dominant_element
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
+    print(f"Element counts: {element_counts}")
+    print(f"Mode counts: {mode_counts}")
     print("Returning astro_data")
     return jsonify(astro_data)
 
