@@ -75,7 +75,6 @@ def get_astrology_chart():
     print(f"Datetime created: {date} {time_24hr} +10:00")
     
     try:
-        # Use Placidus House system to align with marketing voice and failsafe sources
         print("Creating chart with Placidus House system")
         chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
         print("Chart created successfully")
@@ -93,23 +92,32 @@ def get_astrology_chart():
     mc = chart.getAngle('MC')
     print(f"Ascendant: {asc.sign if asc else None}, Midheaven: {mc.sign if mc else None}")
     
-    # Get house cusps using Placidus
+    # Get house cusps directly from chart.houses
     houses = chart.houses
+    print(f"Inspecting chart.houses: {houses}")
+    print(f"chart.houses.content: {houses.content}")
+    
     house_cusps = []
-    for i in range(0, 12):  # Flatlib uses 0-based indexing (0 to 11 for Houses 1 to 12)
-        house = chart.getHouse(i)
-        house_cusps.append({
-            "house": i + 1,  # Map index to house number (0 → House 1, 1 → House 2, etc.)
-            "sign": house.sign,
-            "degree": house.lon
-        })
-    print(f"House cusps: {house_cusps}")
+    try:
+        for i in range(len(houses.content)):  # Iterate over the actual houses list
+            house = houses.content[i]
+            house_cusps.append({
+                "house": i + 1,  # House number (1 to 12)
+                "sign": house.sign,
+                "degree": house.lon
+            })
+        print(f"House cusps: {house_cusps}")
+    except Exception as e:
+        print(f"Failed to retrieve house cusps: {str(e)}")
+        return jsonify({"error": f"Failed to retrieve house cusps: {str(e)}"}), 500
     
     # Function to determine which house a planet is in
     def get_planet_house(planet_lon, house_cusps):
+        if not house_cusps:
+            return None
         for i in range(len(house_cusps)):
             start_lon = house_cusps[i]["degree"]
-            end_lon = house_cusps[(i + 1) % 12]["degree"]
+            end_lon = house_cusps[(i + 1) % len(house_cusps)]["degree"]
             # Handle wraparound at 360°
             if end_lon < start_lon:
                 if planet_lon >= start_lon or planet_lon < end_lon:
@@ -220,9 +228,9 @@ def get_astrology_chart():
     
     # Add weight for 5th House planets (marketing voice)
     if astro_data['sun_house'] == 5 and astro_data['sun_sign']:
-        element_counts[ELEMENTS[astro_data['sun_sign'].upper()]] += 1  # Extra point for Sun in 5th House
+        element_counts[ELEMENTS[astro_data['sun_sign'].upper()]] += 1
     if astro_data['mercury_house'] == 5 and astro_data['mercury_sign']:
-        element_counts[ELEMENTS[astro_data['mercury_sign'].upper()]] += 1  # Extra point for Mercury in 5th House
+        element_counts[ELEMENTS[astro_data['mercury_sign'].upper()]] += 1
     
     # Add 5th House cusp to the tally
     if astro_data['fifth_house_sign']:
@@ -231,11 +239,11 @@ def get_astrology_chart():
     # Determine dominant element with Moon tiebreaker for Medical Astrology
     element_counts_list = [(elem, count) for elem, count in element_counts.items()]
     element_counts_list.sort(key=lambda x: x[1], reverse=True)
-    if element_counts_list[0][1] == element_counts_list[1][1]:  # Tie for first place
+    if element_counts_list[0][1] == element_counts_list[1][1]:
         moon_sign = astro_data['moon_sign']
         if moon_sign:
             moon_sign_upper = moon_sign.upper()
-            dominant_element = ELEMENTS[moon_sign_upper]  # Moon's element (Cancer → Water)
+            dominant_element = ELEMENTS[moon_sign_upper]
         else:
             dominant_element = element_counts_list[0][0]
     else:
