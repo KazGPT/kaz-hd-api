@@ -76,8 +76,8 @@ def get_astrology_chart():
     
     try:
         print("Creating chart with Placidus House system")
-        # Remove 'MeanNode' from IDs; it should be included by default
-        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy', 'Lilith'])
+        # Remove 'Lilith' from IDs; it should be included by default
+        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy'])
         print("Chart created successfully")
     except Exception as e:
         print(f"Chart creation failed: {str(e)}")
@@ -92,6 +92,11 @@ def get_astrology_chart():
     lunar_node_id = 'MeanNode' if 'MeanNode' in available_objects else 'TrueNode' if 'TrueNode' in available_objects else None
     if not lunar_node_id:
         print("Warning: Lunar Node (MeanNode or TrueNode) not found in chart objects")
+    
+    # Check if Lilith is available
+    lilith_id = 'Lilith' if 'Lilith' in available_objects else 'MeanLilith' if 'MeanLilith' in available_objects else 'TrueLilith' if 'TrueLilith' in available_objects else None
+    if not lilith_id:
+        print("Warning: Lilith (Lilith, MeanLilith, or TrueLilith) not found in chart objects")
     
     # Get Ascendant and Midheaven
     asc = chart.getAngle('Asc')
@@ -135,7 +140,7 @@ def get_astrology_chart():
     
     # Assign planets to their houses
     planet_data = {}
-    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Lilith']:
+    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron']:
         planet = chart.getObject(planet_id)
         if planet:
             planet_lon = planet.lon
@@ -152,6 +157,17 @@ def get_astrology_chart():
             planet_lon = planet.lon
             house = get_planet_house(planet_lon, house_cusps)
             planet_data[lunar_node_id] = {
+                "sign": planet.sign,
+                "degree": planet.lon,
+                "house": house
+            }
+    # Add Lilith if available
+    if lilith_id:
+        planet = chart.getObject(lilith_id)
+        if planet:
+            planet_lon = planet.lon
+            house = get_planet_house(planet_lon, house_cusps)
+            planet_data[lilith_id] = {
                 "sign": planet.sign,
                 "degree": planet.lon,
                 "house": house
@@ -233,7 +249,7 @@ def get_astrology_chart():
         astro_data['rising_sign'],
         astro_data['midheaven_sign'],
         planet_data.get(lunar_node_id, {}).get('sign') if lunar_node_id else None,
-        planet_data.get('Lilith', {}).get('sign'),
+        planet_data.get(lilith_id, {}).get('sign') if lilith_id else None,
         planet_data.get('Chiron', {}).get('sign')
     ]
     element_counts = {'Fire': 0, 'Earth': 0, 'Air': 0, 'Water': 0}
