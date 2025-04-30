@@ -75,9 +75,9 @@ def get_astrology_chart():
     print(f"Datetime created: {date} {time_24hr} +10:00")
     
     try:
-        # Use Equal House system to ensure Ascendant and Midheaven work
-        print("Creating chart with Equal House system")
-        chart = Chart(dt, pos, hsys=const.HOUSES_EQUAL, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
+        # Use Placidus House system to align with marketing voice and failsafe sources
+        print("Creating chart with Placidus House system")
+        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
         print("Chart created successfully")
     except Exception as e:
         print(f"Chart creation failed: {str(e)}")
@@ -88,21 +88,55 @@ def get_astrology_chart():
     print(f"Available objects: {available_objects}")
     print(f"Available angles: {available_angles}")
     
+    # Get Ascendant and Midheaven
     asc = chart.getAngle('Asc')
     mc = chart.getAngle('MC')
     print(f"Ascendant: {asc.sign if asc else None}, Midheaven: {mc.sign if mc else None}")
     
-    # Calculate 6th House sign manually based on Ascendant
-    sixth_house_sign = None
-    if asc and asc.sign:
-        signs = ['ARIES', 'TAURUS', 'GEMINI', 'CANCER', 'LEO', 'VIRGO', 'LIBRA', 'SCORPIO', 'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS', 'PISCES']
-        try:
-            asc_index = signs.index(asc.sign.upper())
-            sixth_house_index = (asc_index + 5) % 12  # 6th House is 5 signs after Ascendant (0-based index)
-            sixth_house_sign = signs[sixth_house_index].capitalize()
-            print(f"Manually calculated 6th House sign: {sixth_house_sign}")
-        except ValueError as e:
-            print(f"Error calculating 6th House sign: {str(e)}")
+    # Get house cusps using Placidus
+    houses = chart.houses
+    house_cusps = []
+    for i in range(1, 13):
+        house = chart.getHouse(i)
+        house_cusps.append({
+            "house": i,
+            "sign": house.sign,
+            "degree": house.lon
+        })
+    print(f"House cusps: {house_cusps}")
+    
+    # Function to determine which house a planet is in
+    def get_planet_house(planet_lon, house_cusps):
+        for i in range(len(house_cusps)):
+            start_lon = house_cusps[i]["degree"]
+            end_lon = house_cusps[(i + 1) % 12]["degree"]
+            # Handle wraparound at 360°
+            if end_lon < start_lon:
+                if planet_lon >= start_lon or planet_lon < end_lon:
+                    return house_cusps[i]["house"]
+            else:
+                if start_lon <= planet_lon < end_lon:
+                    return house_cusps[i]["house"]
+        return None
+    
+    # Assign planets to their houses
+    planet_data = {}
+    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+        planet = chart.getObject(planet_id)
+        if planet:
+            planet_lon = planet.lon
+            house = get_planet_house(planet_lon, house_cusps)
+            planet_data[planet_id] = {
+                "sign": planet.sign,
+                "degree": planet.lon,
+                "house": house
+            }
+    print(f"Planet house placements: {planet_data}")
+    
+    # Get the 5th and 6th House signs (for marketing voice and health/dream client)
+    fifth_house_sign = next((h["sign"] for h in house_cusps if h["house"] == 5), None)
+    sixth_house_sign = next((h["sign"] for h in house_cusps if h["house"] == 6), None)
+    print(f"5th House sign: {fifth_house_sign}, 6th House sign: {sixth_house_sign}")
     
     # Get Ascendant ruler (planet ruling the Rising sign)
     asc_ruler = None
@@ -111,33 +145,55 @@ def get_astrology_chart():
     asc_ruler_sign = asc_ruler.sign if asc_ruler else None
     print(f"Ascendant ruler sign: {asc_ruler_sign}")
     
+    # Prepare the response
     astro_data = {
         "name": name,
         "date": date,
         "time": time,
         "location": location,
-        "sun_sign": chart.getObject('Sun').sign if chart.getObject('Sun') else None,
-        "moon_sign": chart.getObject('Moon').sign if chart.getObject('Moon') else None,
-        "mercury_sign": chart.getObject('Mercury').sign if chart.getObject('Mercury') else None,
-        "venus_sign": chart.getObject('Venus').sign if chart.getObject('Venus') else None,
-        "mars_sign": chart.getObject('Mars').sign if chart.getObject('Mars') else None,
-        "jupiter_sign": chart.getObject('Jupiter').sign if chart.getObject('Jupiter') else None,
-        "saturn_sign": chart.getObject('Saturn').sign if chart.getObject('Saturn') else None,
-        "uranus_sign": chart.getObject('Uranus').sign if chart.getObject('Uranus') else None,
-        "neptune_sign": chart.getObject('Neptune').sign if chart.getObject('Neptune') else None,
-        "pluto_sign": chart.getObject('Pluto').sign if chart.getObject('Pluto') else None,
+        "sun_sign": planet_data.get('Sun', {}).get('sign'),
+        "sun_degree": planet_data.get('Sun', {}).get('degree'),
+        "sun_house": planet_data.get('Sun', {}).get('house'),
+        "moon_sign": planet_data.get('Moon', {}).get('sign'),
+        "moon_degree": planet_data.get('Moon', {}).get('degree'),
+        "moon_house": planet_data.get('Moon', {}).get('house'),
+        "mercury_sign": planet_data.get('Mercury', {}).get('sign'),
+        "mercury_degree": planet_data.get('Mercury', {}).get('degree'),
+        "mercury_house": planet_data.get('Mercury', {}).get('house'),
+        "venus_sign": planet_data.get('Venus', {}).get('sign'),
+        "venus_degree": planet_data.get('Venus', {}).get('degree'),
+        "venus_house": planet_data.get('Venus', {}).get('house'),
+        "mars_sign": planet_data.get('Mars', {}).get('sign'),
+        "mars_degree": planet_data.get('Mars', {}).get('degree'),
+        "mars_house": planet_data.get('Mars', {}).get('house'),
+        "jupiter_sign": planet_data.get('Jupiter', {}).get('sign'),
+        "jupiter_degree": planet_data.get('Jupiter', {}).get('degree'),
+        "jupiter_house": planet_data.get('Jupiter', {}).get('house'),
+        "saturn_sign": planet_data.get('Saturn', {}).get('sign'),
+        "saturn_degree": planet_data.get('Saturn', {}).get('degree'),
+        "saturn_house": planet_data.get('Saturn', {}).get('house'),
+        "uranus_sign": planet_data.get('Uranus', {}).get('sign'),
+        "uranus_degree": planet_data.get('Uranus', {}).get('degree'),
+        "uranus_house": planet_data.get('Uranus', {}).get('house'),
+        "neptune_sign": planet_data.get('Neptune', {}).get('sign'),
+        "neptune_degree": planet_data.get('Neptune', {}).get('degree'),
+        "neptune_house": planet_data.get('Neptune', {}).get('house'),
+        "pluto_sign": planet_data.get('Pluto', {}).get('sign'),
+        "pluto_degree": planet_data.get('Pluto', {}).get('degree'),
+        "pluto_house": planet_data.get('Pluto', {}).get('house'),
         "rising_sign": asc.sign if asc else None,
         "rising_sign_degree": asc.signlon if asc else None,
         "midheaven_sign": mc.sign if mc else None,
         "midheaven_sign_degree": mc.signlon if mc else None,
+        "fifth_house_sign": fifth_house_sign,
         "sixth_house_sign": sixth_house_sign,
         "ascendant_ruler_sign": asc_ruler_sign,
-        "available_objects": available_objects,
-        "available_angles": available_angles
+        "available_objects": [obj.id for obj in chart.objects],
+        "available_angles": [angle.id for angle in chart.angles]
     }
     
     print("Calculating dominant element and mode")
-    # Equal weighting for all planets, Ascendant, and Midheaven
+    # Base tally: Equal weighting for all planets, Ascendant, and Midheaven
     placements = [
         astro_data['sun_sign'],
         astro_data['moon_sign'],
@@ -162,7 +218,17 @@ def get_astrology_chart():
             if sign_upper in MODES:
                 mode_counts[MODES[sign_upper]] += 1
     
-    # Tiebreaker: Prioritize Moon's element for Medical Astrology
+    # Add weight for 5th House planets (marketing voice)
+    if astro_data['sun_house'] == 5 and astro_data['sun_sign']:
+        element_counts[ELEMENTS[astro_data['sun_sign'].upper()]] += 1  # Extra point for Sun in 5th House
+    if astro_data['mercury_house'] == 5 and astro_data['mercury_sign']:
+        element_counts[ELEMENTS[astro_data['mercury_sign'].upper()]] += 1  # Extra point for Mercury in 5th House
+    
+    # Add 5th House cusp to the tally
+    if astro_data['fifth_house_sign']:
+        element_counts[ELEMENTS[astro_data['fifth_house_sign'].upper()]] += 1
+    
+    # Determine dominant element with Moon tiebreaker for Medical Astrology
     element_counts_list = [(elem, count) for elem, count in element_counts.items()]
     element_counts_list.sort(key=lambda x: x[1], reverse=True)
     if element_counts_list[0][1] == element_counts_list[1][1]:  # Tie for first place
@@ -179,7 +245,7 @@ def get_astrology_chart():
     astro_data['mode'] = max(mode_counts, key=mode_counts.get)
     print("Returning astro_data")
     return jsonify(astro_data)
-    
+
 @app.route('/moonphase', methods=['GET'])
 def get_moon_phase():
     date = request.args.get('date')
@@ -252,4 +318,5 @@ def get_profile():
     return jsonify(hd_data)
 
 if __name__ == '__main__':
+    app.run(debug=True)
     app.run(debug=True)
