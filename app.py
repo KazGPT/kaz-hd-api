@@ -76,7 +76,8 @@ def get_astrology_chart():
     
     try:
         print("Creating chart with Placidus House system")
-        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy', 'MeanNode', 'Lilith'])
+        # Remove 'MeanNode' from IDs; it should be included by default
+        chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Syzygy', 'Lilith'])
         print("Chart created successfully")
     except Exception as e:
         print(f"Chart creation failed: {str(e)}")
@@ -86,6 +87,11 @@ def get_astrology_chart():
     available_angles = [angle.id for angle in chart.angles]
     print(f"Available objects: {available_objects}")
     print(f"Available angles: {available_angles}")
+    
+    # Check if Lunar Node is available
+    lunar_node_id = 'MeanNode' if 'MeanNode' in available_objects else 'TrueNode' if 'TrueNode' in available_objects else None
+    if not lunar_node_id:
+        print("Warning: Lunar Node (MeanNode or TrueNode) not found in chart objects")
     
     # Get Ascendant and Midheaven
     asc = chart.getAngle('Asc')
@@ -129,12 +135,23 @@ def get_astrology_chart():
     
     # Assign planets to their houses
     planet_data = {}
-    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith']:
+    for planet_id in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Lilith']:
         planet = chart.getObject(planet_id)
         if planet:
             planet_lon = planet.lon
             house = get_planet_house(planet_lon, house_cusps)
             planet_data[planet_id] = {
+                "sign": planet.sign,
+                "degree": planet.lon,
+                "house": house
+            }
+    # Add Lunar Node if available
+    if lunar_node_id:
+        planet = chart.getObject(lunar_node_id)
+        if planet:
+            planet_lon = planet.lon
+            house = get_planet_house(planet_lon, house_cusps)
+            planet_data[lunar_node_id] = {
                 "sign": planet.sign,
                 "degree": planet.lon,
                 "house": house
@@ -201,7 +218,7 @@ def get_astrology_chart():
     }
     
     print("Calculating dominant element and mode for Medical Astrology")
-    # Base tally: Include planets, Ascendant, Midheaven, MeanNode, Lilith, Chiron
+    # Base tally: Include planets, Ascendant, Midheaven, Lunar Node, Lilith, Chiron
     placements = [
         astro_data['sun_sign'],
         astro_data['moon_sign'],
@@ -215,7 +232,7 @@ def get_astrology_chart():
         astro_data['pluto_sign'],
         astro_data['rising_sign'],
         astro_data['midheaven_sign'],
-        planet_data.get('MeanNode', {}).get('sign'),
+        planet_data.get(lunar_node_id, {}).get('sign') if lunar_node_id else None,
         planet_data.get('Lilith', {}).get('sign'),
         planet_data.get('Chiron', {}).get('sign')
     ]
