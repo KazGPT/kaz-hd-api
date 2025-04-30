@@ -200,7 +200,7 @@ def get_astrology_chart():
         "available_angles": [angle.id for angle in chart.angles]
     }
     
-    print("Calculating dominant element and mode")
+    print("Calculating dominant element and mode for Medical Astrology")
     # Base tally: Include planets, Ascendant, Midheaven, Node, Lilith, Chiron
     placements = [
         astro_data['sun_sign'],
@@ -229,7 +229,19 @@ def get_astrology_chart():
             if sign_upper in MODES:
                 mode_counts[MODES[sign_upper]] += 1
     
-    # Determine dominant element with Moon tiebreaker
+    # Add weight for 6th House planets (for Medical Astrology health focus)
+    if astro_data['moon_house'] == 6 and astro_data['moon_sign']:
+        element_counts[ELEMENTS[astro_data['moon_sign'].upper()]] += 1
+    if astro_data['venus_house'] == 6 and astro_data['venus_sign']:
+        element_counts[ELEMENTS[astro_data['venus_sign'].upper()]] += 1
+    if astro_data['saturn_house'] == 6 and astro_data['saturn_sign']:
+        element_counts[ELEMENTS[astro_data['saturn_sign'].upper()]] += 1
+    
+    # Add 6th House cusp to the tally
+    if astro_data['sixth_house_sign']:
+        element_counts[ELEMENTS[astro_data['sixth_house_sign'].upper()]] += 1
+    
+    # Determine dominant element with Moon tiebreaker for Medical Astrology
     element_counts_list = [(elem, count) for elem, count in element_counts.items()]
     element_counts_list.sort(key=lambda x: x[1], reverse=True)
     if element_counts_list[0][1] == element_counts_list[1][1]:
