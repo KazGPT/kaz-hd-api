@@ -11,12 +11,20 @@ import logging
 import swisseph as swe
 
 app = Flask(__name__)
-# Set ephemeris path for Swiss Ephemeris
-swe.set_ephe_path(os.path.join(os.path.dirname(__file__), 'ephe'))
+# Set absolute ephemeris path for Render
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+EPHE_PATH = os.path.join(BASE_DIR, 'ephe')
+swe.set_ephe_path(EPHE_PATH)
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Verify ephemeris files exist
+for fname in ['sepl_18.se1', 'semo_18.se1', 'seas_18.se1']:
+    fpath = os.path.join(EPHE_PATH, fname)
+    if not os.path.exists(fpath):
+        logger.error(f"Ephemeris file {fpath} not found")
 
 # Zodiac Elements and Modes (Tropical Zodiac)
 ELEMENTS = {
@@ -67,7 +75,7 @@ def calculate_human_design(date, time, lat, lon):
         dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %H:%M")
         jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
         design_dt = dt - timedelta(days=88)
-        jd_design = swe.julday(design_dt.year, design_dt.month, dt.day, dt.hour + dt.minute/60.0)
+        jd_design = swe.julday(design_dt.year, design_dt.month, design_dt.day, dt.hour + dt.minute/60.0)
         planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Node']
         personality_positions = {}
         design_positions = {}
@@ -194,8 +202,13 @@ def get_astrology_chart():
         chiron_lon = None
         chiron_sign = None
     
-    # Calculate Lilith
-    lilith_data = swe.calc_ut(jd, swe.LILITH)
+    # Calculate Lilith with fallback for swe.LILITH
+    try:
+        LILITH = swe.LILITH
+    except AttributeError:
+        LILITH = 12  # Hardcode LILITH value
+        logger.warning("swe.LILITH not found, using hardcoded value 12")
+    lilith_data = swe.calc_ut(jd, LILITH)
     if lilith_data[1] == 0:
         lilith_lon = lilith_data[0][0]
         lilith_sign = get_sign(lilith_lon)
@@ -205,7 +218,7 @@ def get_astrology_chart():
         moon_data = swe.calc_ut(jd, swe.MOON)
         if moon_data[1] == 0:
             moon_lon = moon_data[0][0]
-            # Approximate Lilith as 180 degrees opposite Moon (more accurate approximation)
+            # Approximate Lilith as 180 degrees opposite Moon
             lilith_lon = (moon_lon + 180) % 360
             lilith_sign = get_sign(lilith_lon)
         else:
