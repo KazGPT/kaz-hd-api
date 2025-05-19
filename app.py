@@ -68,25 +68,31 @@ def calculate_human_design(date, time, lat, lon):
         design_gates = {}
         for planet in planets:
             planet_id = getattr(swe, planet.upper()) if planet != 'Node' else swe.MEAN_NODE
-            pos = swe.calc_ut(jd_natal, planet_id)[0]  # Get longitude
-            personality_positions[planet] = pos % 360  # Ensure float for modulo
+            pos_data = swe.calc_ut(jd_natal, planet_id)
+            logger.info(f"Planet {planet} natal pos_data: {pos_data}")
+            pos = float(pos_data[0])  # Ensure float conversion
+            personality_positions[planet] = pos % 360.0
+            logger.info(f"Planet {planet} personality position: {personality_positions[planet]}")
             for i, (start, end) in enumerate(GATE_BOUNDARIES):
-                if start <= (pos % 360) < end:
+                if start <= personality_positions[planet] < end:
                     gate = i + 1
                     gate_start = start
-                    pos_in_gate = (pos % 360) - gate_start
+                    pos_in_gate = personality_positions[planet] - gate_start
                     for j, (line_start, line_end) in enumerate(LINE_BOUNDARIES):
                         if line_start <= pos_in_gate < line_end:
                             personality_gates[planet] = (gate, j + 1)
                             break
                     break
-            pos = swe.calc_ut(jd_design, planet_id)[0]  # Get longitude
-            design_positions[planet] = pos % 360  # Ensure float for modulo
+            pos_data = swe.calc_ut(jd_design, planet_id)
+            logger.info(f"Planet {planet} design pos_data: {pos_data}")
+            pos = float(pos_data[0])  # Ensure float conversion
+            design_positions[planet] = pos % 360.0
+            logger.info(f"Planet {planet} design position: {design_positions[planet]}")
             for i, (start, end) in enumerate(GATE_BOUNDARIES):
-                if start <= (pos % 360) < end:
+                if start <= design_positions[planet] < end:
                     gate = i + 1
                     gate_start = start
-                    pos_in_gate = (pos % 360) - gate_start
+                    pos_in_gate = design_positions[planet] - gate_start
                     for j, (line_start, line_end) in enumerate(LINE_BOUNDARIES):
                         if line_start <= pos_in_gate < line_end:
                             design_gates[planet] = (gate, j + 1)
@@ -160,7 +166,7 @@ def get_astrology_chart():
     except Exception as e:
         return jsonify({"error": f"Geocoding failed: {str(e)}"}), 500
     dt = Datetime(date, time, '+10:00')  # AEST offset
-    chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith'])
+    chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Lilith'])  # Removed 'MeanNode'
     asc = chart.getAngle('Asc')
     mc = chart.getAngle('MC')
     house_cusps = [{'house': i, 'sign': chart.houses.content[f'House{i}'].sign, 'degree': chart.houses.content[f'House{i}'].lon} for i in range(1, 13)]
@@ -175,8 +181,8 @@ def get_astrology_chart():
                 if start_lon <= planet_lon < end_lon:
                     return house_cusps[i]['house']
         return None
-    planet_data = {pid: {'sign': chart.getObject(pid).sign, 'degree': chart.getObject(pid).lon, 'house': get_planet_house(chart.getObject(pid).lon)} for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith'] if chart.getObject(pid)}
-    placements = [planet_data.get(pid, {}).get('sign') for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith'] if planet_data.get(pid)] + [asc.sign if asc else None, mc.sign if mc else None]
+    planet_data = {pid: {'sign': chart.getObject(pid).sign, 'degree': chart.getObject(pid).lon, 'house': get_planet_house(chart.getObject(pid).lon)} for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Lilith'] if chart.getObject(pid)}
+    placements = [planet_data.get(pid, {}).get('sign') for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Lilith'] if planet_data.get(pid)] + [asc.sign if asc else None, mc.sign if mc else None]
     element_counts = {elem: sum(1 for sign in placements if sign and ELEMENTS.get(sign.upper()) == elem) for elem in ['Fire', 'Earth', 'Air', 'Water']}
     mode_counts = {mode: sum(1 for sign in placements if sign and MODES.get(sign.upper()) == mode) for mode in ['Cardinal', 'Fixed', 'Mutable']}
     dominant_element = max(element_counts, key=element_counts.get) if element_counts else 'Unknown'
