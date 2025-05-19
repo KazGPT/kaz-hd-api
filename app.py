@@ -57,7 +57,7 @@ def decimal_to_dms(decimal):
 
 def calculate_human_design(date, time, lat, lon):
     try:
-        dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %I:%M %p")
+        dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %H:%M")
         jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
         design_dt = dt - timedelta(days=88)
         jd_design = swe.julday(design_dt.year, design_dt.month, design_dt.day, design_dt.hour + dt.minute/60.0)
@@ -160,7 +160,7 @@ def get_astrology_chart():
     except Exception as e:
         return jsonify({"error": f"Geocoding failed: {str(e)}"}), 500
     dt = Datetime(date, time, '+10:00')  # AEST offset
-    chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith'])
+    chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Node', 'Lilith'])
     asc = chart.getAngle('Asc')
     mc = chart.getAngle('MC')
     house_cusps = [{'house': i, 'sign': chart.houses.content[f'House{i}'].sign, 'degree': chart.houses.content[f'House{i}'].lon} for i in range(1, 13)]
@@ -175,8 +175,8 @@ def get_astrology_chart():
                 if start_lon <= planet_lon < end_lon:
                     return house_cusps[i]['house']
         return None
-    planet_data = {pid: {'sign': chart.getObject(pid).sign, 'degree': chart.getObject(pid).lon, 'house': get_planet_house(chart.getObject(pid).lon)} for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith'] if chart.getObject(pid)}
-    placements = [planet_data.get(pid, {}).get('sign') for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'MeanNode', 'Lilith'] if planet_data.get(pid)] + [asc.sign if asc else None, mc.sign if mc else None]
+    planet_data = {pid: {'sign': chart.getObject(pid).sign, 'degree': chart.getObject(pid).lon, 'house': get_planet_house(chart.getObject(pid).lon)} for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Node', 'Lilith'] if chart.getObject(pid)}
+    placements = [planet_data.get(pid, {}).get('sign') for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Node', 'Lilith'] if planet_data.get(pid)] + [asc.sign if asc else None, mc.sign if mc else None]
     element_counts = {elem: sum(1 for sign in placements if sign and ELEMENTS.get(sign.upper()) == elem) for elem in ['Fire', 'Earth', 'Air', 'Water']}
     mode_counts = {mode: sum(1 for sign in placements if sign and MODES.get(sign.upper()) == mode) for mode in ['Cardinal', 'Fixed', 'Mutable']}
     dominant_element = max(element_counts, key=element_counts.get) if element_counts else 'Unknown'
