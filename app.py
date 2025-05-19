@@ -18,7 +18,7 @@ GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Zodiac Elements and Modes
+# Zodiac Elements and Modes (Tropical Zodiac)
 ELEMENTS = {
     'ARIES': 'Fire', 'TAURUS': 'Earth', 'GEMINI': 'Air', 'CANCER': 'Water',
     'LEO': 'Fire', 'VIRGO': 'Earth', 'LIBRA': 'Air', 'SCORPIO': 'Water',
@@ -55,12 +55,19 @@ def decimal_to_dms(decimal):
     seconds = int((minutes_float - minutes) * 60)
     return f"{'-' if is_negative else ''}{degrees}:{minutes}:{seconds}"
 
+def get_sign(lon):
+    if lon is None:
+        return None
+    signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+    index = int(lon / 30) % 12
+    return signs[index]
+
 def calculate_human_design(date, time, lat, lon):
     try:
         dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %H:%M")
         jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
         design_dt = dt - timedelta(days=88)
-        jd_design = swe.julday(design_dt.year, design_dt.month, design_dt.day, design_dt.hour + dt.minute/60.0)
+        jd_design = swe.julday(design_dt.year, design_dt.month, dt.day, dt.hour + dt.minute/60.0)
         planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Node']
         personality_positions = {}
         design_positions = {}
@@ -69,97 +76,10 @@ def calculate_human_design(date, time, lat, lon):
         for planet in planets:
             planet_id = getattr(swe, planet.upper()) if planet != 'Node' else swe.MEAN_NODE
             pos_data = swe.calc_ut(jd_natal, planet_id)
-            logger.info(f"Planet {planet} natal pos_data: {pos_data}")
-            pos = float(pos_data[0])  # Ensure float conversion
-            personality_positions[planet] = pos % 360.0
-            logger.info(f"Planet {planet} personality position: {personality_positions[planet]}")
-            for i, (start, end) in enumerate(GATE_BOUNDARIES):
-                if start <= personality_positions[planet] < end:
-                    gate = i + 1
-                    gate_start = start
-                    pos_in_gate = personality_positions[planet] - gate_start
-                    for j, (line_start, line_end) in enumerate(LINE_BOUNDARIES):
-                        if line_start <= pos_in_gate < line_end:
-                            personality_gates[planet] = (gate, j + 1)
-                            break
-                    break
-            pos_data = swe.calc_ut(jd_design, planet_id)
-            logger.info(f"Planet {planet} design pos_data: {pos_data}")
-            pos = float(pos_data[0])  # Ensure float from flask import Flask, request, jsonify
-from flatlib.chart import Chart
-from flatlib.datetime import Datetime
-from flatlib.geopos import GeoPos
-from flatlib import const, angle
-from urllib.parse import quote
-import requests
-import os
-from datetime import datetime, timedelta
-import logging
-import swisseph as swe
-
-app = Flask(__name__)
-# Set ephemeris path for Swiss Ephemeris
-swe.set_ephe_path(os.path.join(os.path.dirname(__file__), 'ephe'))
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-# Zodiac Elements and Modes
-ELEMENTS = {
-    'ARIES': 'Fire', 'TAURUS': 'Earth', 'GEMINI': 'Air', 'CANCER': 'Water',
-    'LEO': 'Fire', 'VIRGO': 'Earth', 'LIBRA': 'Air', 'SCORPIO': 'Water',
-    'SAGITTARIUS': 'Fire', 'CAPRICORN': 'Earth', 'AQUARIUS': 'Air', 'PISCES': 'Water'
-}
-MODES = {
-    'ARIES': 'Cardinal', 'TAURUS': 'Fixed', 'GEMINI': 'Mutable', 'CANCER': 'Cardinal',
-    'LEO': 'Fixed', 'VIRGO': 'Mutable', 'LIBRA': 'Cardinal', 'SCORPIO': 'Fixed',
-    'SAGITTARIUS': 'Mutable', 'CAPRICORN': 'Cardinal', 'AQUARIUS': 'Fixed', 'PISCES': 'Mutable'
-}
-
-# Human Design gate boundaries
-GATE_BOUNDARIES = [(i * 5.625, (i + 1) * 5.625) for i in range(64)]
-LINE_BOUNDARIES = [(i * 0.9375, (i + 1) * 0.9375) for i in range(6)]
-CHANNELS = {(1, 8): '1-8', (2, 14): '2-14', (3, 60): '3-60', (4, 63): '4-63', (5, 15): '5-15', (6, 59): '6-59',
-            (7, 31): '7-31', (9, 52): '9-52', (10, 20): '10-20', (10, 34): '10-34', (10, 57): '10-57',
-            (11, 56): '11-56', (12, 22): '12-22', (13, 33): '13-33', (16, 48): '16-48', (17, 62): '17-62',
-            (18, 58): '18-58', (19, 49): '19-49', (20, 34): '20-34', (21, 45): '21-45', (23, 43): '23-43',
-            (24, 61): '24-61', (25, 51): '25-51', (26, 44): '26-44', (27, 50): '27-50', (28, 38): '28-38',
-            (29, 46): '29-46', (30, 41): '30-41', (32, 54): '32-54', (35, 36): '35-36', (37, 40): '37-40',
-            (39, 55): '39-55', (47, 64): '47-64', (53, 42): '53-42'}
-CENTER_GATES = {
-    'Head': [61, 63, 64], 'Ajna': [4, 11, 17, 24, 43, 47], 'Throat': [16, 20, 23, 31, 33, 35, 45, 56, 62],
-    'G': [1, 2, 7, 10, 13, 15, 25, 46], 'Heart': [21, 26, 40, 51], 'Sacral': [3, 5, 9, 14, 29, 34, 42, 59],
-    'Spleen': [18, 28, 32, 44, 48, 50, 57], 'SolarPlexus': [6, 30, 36, 37, 39, 49, 55], 'Root': [38, 41, 52, 53, 54, 58, 60]
-}
-
-def decimal_to_dms(decimal):
-    is_negative = decimal < 0
-    decimal = abs(decimal)
-    degrees = int(decimal)
-    minutes_float = (decimal - degrees) * 60
-    minutes = int(minutes_float)
-    seconds = int((minutes_float - minutes) * 60)
-    return f"{'-' if is_negative else ''}{degrees}:{minutes}:{seconds}"
-
-def calculate_human_design(date, time, lat, lon):
-    try:
-        dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %H:%M")
-        jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
-        design_dt = dt - timedelta(days=88)
-        jd_design = swe.julday(design_dt.year, design_dt.month, design_dt.day, design_dt.hour + dt.minute/60.0)
-        planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Node']
-        personality_positions = {}
-        design_positions = {}
-        personality_gates = {}
-        design_gates = {}
-        for planet in planets:
-            planet_id = getattr(swe, planet.upper()) if planet != 'Node' else swe.MEAN_NODE
-            pos_data = swe.calc_ut(jd_natal, planet_id)
-            if not pos_data or len(pos_data) < 1:
-                logger.error(f"Failed to calculate position for {planet} at JD {jd_natal}")
+            if pos_data[1] != 0:
+                logger.error(f"Failed to calculate natal position for {planet}: retflag {pos_data[1]}")
                 continue
-            pos = float(pos_data[0])  # Ensure float conversion
+            pos = pos_data[0][0]  # Longitude
             personality_positions[planet] = pos % 360.0
             for i, (start, end) in enumerate(GATE_BOUNDARIES):
                 if start <= personality_positions[planet] < end:
@@ -172,10 +92,10 @@ def calculate_human_design(date, time, lat, lon):
                             break
                     break
             pos_data = swe.calc_ut(jd_design, planet_id)
-            if not pos_data or len(pos_data) < 1:
-                logger.error(f"Failed to calculate position for {planet} at JD {jd_design}")
+            if pos_data[1] != 0:
+                logger.error(f"Failed to calculate design position for {planet}: retflag {pos_data[1]}")
                 continue
-            pos = float(pos_data[0])  # Ensure float conversion
+            pos = pos_data[0][0]  # Longitude
             design_positions[planet] = pos % 360.0
             for i, (start, end) in enumerate(GATE_BOUNDARIES):
                 if start <= design_positions[planet] < end:
@@ -258,11 +178,44 @@ def get_astrology_chart():
     except Exception as e:
         return jsonify({"error": f"Geocoding failed: {str(e)}"}), 500
     dt = Datetime(date, time, '+10:00')  # AEST offset
-    chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])  # Core planets only
+    chart = Chart(dt, pos, hsys=const.HOUSES_PLACIDUS, IDs=['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
     asc = chart.getAngle('Asc')
     mc = chart.getAngle('MC')
     house_cusps = [{'house': i, 'sign': chart.houses.content[f'House{i}'].sign, 'degree': chart.houses.content[f'House{i}'].lon} for i in range(1, 13)]
+    
+    # Calculate Chiron
+    jd = dt.jd
+    chiron_data = swe.calc_ut(jd, swe.CHIRON)
+    if chiron_data[1] == 0:
+        chiron_lon = chiron_data[0][0]
+        chiron_sign = get_sign(chiron_lon)
+    else:
+        logger.error(f"Failed to calculate Chiron position: retflag {chiron_data[1]}")
+        chiron_lon = None
+        chiron_sign = None
+    
+    # Calculate Lilith
+    lilith_data = swe.calc_ut(jd, swe.LILITH)
+    if lilith_data[1] == 0:
+        lilith_lon = lilith_data[0][0]
+        lilith_sign = get_sign(lilith_lon)
+    else:
+        logger.warning("Failed to calculate Lilith with swe.LILITH, attempting manual calculation")
+        # Fallback: Approximate Lilith using Moon's position
+        moon_data = swe.calc_ut(jd, swe.MOON)
+        if moon_data[1] == 0:
+            moon_lon = moon_data[0][0]
+            # Approximate Lilith as 180 degrees opposite Moon (more accurate approximation)
+            lilith_lon = (moon_lon + 180) % 360
+            lilith_sign = get_sign(lilith_lon)
+        else:
+            logger.error("Failed to calculate Moon position for Lilith approximation")
+            lilith_lon = None
+            lilith_sign = None
+
     def get_planet_house(planet_lon):
+        if planet_lon is None:
+            return None
         for i in range(len(house_cusps)):
             start_lon = house_cusps[i]['degree']
             end_lon = house_cusps[(i + 1) % len(house_cusps)]['degree']
@@ -273,8 +226,12 @@ def get_astrology_chart():
                 if start_lon <= planet_lon < end_lon:
                     return house_cusps[i]['house']
         return None
+
     planet_data = {pid: {'sign': chart.getObject(pid).sign, 'degree': chart.getObject(pid).lon, 'house': get_planet_house(chart.getObject(pid).lon)} for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'] if chart.getObject(pid)}
-    placements = [planet_data.get(pid, {}).get('sign') for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'] if planet_data.get(pid)] + [asc.sign if asc else None, mc.sign if mc else None]
+    planet_data['Chiron'] = {'sign': chiron_sign, 'degree': chiron_lon, 'house': get_planet_house(chiron_lon)}
+    planet_data['Lilith'] = {'sign': lilith_sign, 'degree': lilith_lon, 'house': get_planet_house(lilith_lon)}
+
+    placements = [planet_data.get(pid, {}).get('sign') for pid in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Chiron', 'Lilith'] if planet_data.get(pid, {}).get('sign')] + [asc.sign if asc else None, mc.sign if mc else None]
     element_counts = {elem: sum(1 for sign in placements if sign and ELEMENTS.get(sign.upper()) == elem) for elem in ['Fire', 'Earth', 'Air', 'Water']}
     mode_counts = {mode: sum(1 for sign in placements if sign and MODES.get(sign.upper()) == mode) for mode in ['Cardinal', 'Fixed', 'Mutable']}
     dominant_element = max(element_counts, key=element_counts.get) if element_counts else 'Unknown'
@@ -285,6 +242,8 @@ def get_astrology_chart():
         'name': name, 'date': date, 'time': time, 'location': location,
         'sun_sign': planet_data.get('Sun', {}).get('sign'), 'moon_sign': planet_data.get('Moon', {}).get('sign'),
         'rising_sign': asc.sign if asc else None, 'dominant_element': dominant_element, 'mode': mode,
+        'chiron': planet_data.get('Chiron', {}).get('sign'), 'chiron_house': planet_data.get('Chiron', {}).get('house'),
+        'lilith': planet_data.get('Lilith', {}).get('sign'), 'lilith_house': planet_data.get('Lilith', {}).get('house'),
         'sixth_house': sixth_house, 'fifth_house': fifth_house
     })
 
