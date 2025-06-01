@@ -7,26 +7,27 @@ import logging
 import swisseph as swe
 import math
 
-# Force use of built-in ephemeris for reliability
-swe.set_ephe_path("")
-
 app = Flask(__name__)
 
 # Set absolute ephemeris path for Render
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 EPHE_PATH = os.path.join(BASE_DIR, 'ephe')
 
+# Try to set ephemeris path, but don't fail if it doesn't exist
+try:
+    if os.path.exists(EPHE_PATH):
+        swe.set_ephe_path(EPHE_PATH)
+    else:
+        # Use built-in ephemeris
+        swe.set_ephe_path("")
+except Exception as e:
+    logging.warning(f"Could not set ephemeris path: {e}")
+    swe.set_ephe_path("")
+
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# Verify ephemeris files exist
-required_files = ['sepl_18.se1', 'semo_18.se1', 'seas_18.se1']
-for fname in required_files:
-    fpath = os.path.join(EPHE_PATH, fname)
-    if not os.path.exists(fpath):
-        logger.error(f"Ephemeris file {fpath} not found")
 
 # Zodiac Elements and Modes (Tropical Zodiac)
 ELEMENTS = {
@@ -620,6 +621,7 @@ def debug_ephemeris():
     }
     
     # Check individual files
+    required_files = ['sepl_18.se1', 'semo_18.se1', 'seas_18.se1']
     for fname in required_files:
         fpath = os.path.join(EPHE_PATH, fname)
         ephe_status['files'][fname] = {
@@ -686,4 +688,88 @@ def get_astrology_chart():
     """Get tropical astrology chart"""
     try:
         # Get parameters
-        name = request.args.get('name
+        name = request.args.get('name', 'Unknown')
+        date = request.args.get('date')
+        time = request.args.get('time')
+        location = request.args.get('location')
+        timezone_offset = float(request.args.get('timezone_offset', 0))  # Hours from UTC
+        
+        if not all([date, time, location]):
+            return jsonify({"error": "Missing required parameters: date, time, location"}), 400
+        
+        # Get coordinates
+        lat, lon, error = get_geocoding_data(location)
+        if error:
+            return jsonify({"error": error}), 400
+            
+        # Calculate astrology chart
+        chart_data = calculate_astrology_chart(date, time, lat, lon, timezone_offset)
+        if not chart_data:
+            return jsonify({"error": "Astrology chart calculation failed"}), 500
+            
+        # Add request info
+        result = {
+            'name': name,
+            'date': date,
+            'time': time,
+            'location': location,
+            'timezone_offset': timezone_offset,
+            'coordinates': {'latitude': lat, 'longitude': lon},
+            **chart_data
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Astrology endpoint error: {str(e)}")
+        return jsonify({"error": f"Request failed: {str(e)}"}), 500
+
+@app.route('/v1/moonphase', methods=['GET'])
+def get_moon_phase():
+    """Get moon phase information"""
+    try:
+        date = request.args.get('date')
+        range_query = request.args.get('range', 'single')
+        
+        if not date:
+            return jsonify({"error": "Missing required parameter: date"}), 400
+        
+        if range_query == 'single':
+            phase_data = calculate_moon_phase(date)
+            if not phase_data:
+                return jsonify({"error": "Moon phase calculation failed"}), 500
+            return jsonify(phase_data)
+            
+        elif range_query == '6week':
+            # Calculate for 6 weeks (42 days)
+            start_date = datetime.strptime(date.replace('/', '-'), "%Y-%m-%d")
+            moon_phases = []
+            
+            for i in range(0, 42, 7):  # Weekly intervals
+                current_date = start_date + timedelta(days=i)
+                date_str = current_date.strftime('%Y-%m-%d')
+                phase_data = calculate_moon_phase(date_str)
+                if phase_data:
+                    moon_phases.append(phase_data)
+                    
+            return jsonify(moon_phases)
+            
+        else:
+            return jsonify({"error": "Invalid range parameter. Use 'single' or '6week'"}), 400
+            
+    except Exception as e:
+        logger.error(f"Moon phase endpoint error: {str(e)}")
+        return jsonify({"error": f"Request failed: {str(e)}"}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'ephemeris_path': EPHE_PATH,
+        'ephemeris_exists': os.path.exists(EPHE_PATH)
+    })
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=10000)
