@@ -103,70 +103,114 @@ def julian_day_from_date(year, month, day, hour=12.0):
     return jd
 
 def basic_sun_position(jd):
-    """Calculate basic Sun position using simplified formula"""
+    """Calculate basic Sun position using more accurate formula"""
     # Days since J2000.0
-    n = jd - 2451545.0
+    T = (jd - 2451545.0) / 36525.0  # Julian centuries
     
-    # Mean longitude of Sun
-    L = (280.460 + 0.9856474 * n) % 360
+    # Mean longitude of Sun (degrees)
+    L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360
     
-    # Mean anomaly
-    g = math.radians((357.528 + 0.9856003 * n) % 360)
+    # Mean anomaly of Sun (degrees)
+    M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) % 360
+    M_rad = math.radians(M)
     
-    # Ecliptic longitude
-    longitude = (L + 1.915 * math.sin(g) + 0.020 * math.sin(2 * g)) % 360
+    # Equation of center
+    C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M_rad) + \
+        (0.019993 - 0.000101 * T) * math.sin(2 * M_rad) + \
+        0.000289 * math.sin(3 * M_rad)
+    
+    # True longitude
+    longitude = (L0 + C) % 360
     
     return longitude
 
 def basic_moon_position(jd):
-    """Calculate basic Moon position using simplified formula"""
+    """Calculate basic Moon position using more accurate formula"""
     # Days since J2000.0
-    n = jd - 2451545.0
+    T = (jd - 2451545.0) / 36525.0  # Julian centuries
     
-    # Moon's mean longitude
-    L = (218.316 + 13.176396 * n) % 360
+    # Moon's mean longitude (degrees)
+    L_prime = (218.3164477 + 481267.88123421 * T - 0.0015786 * T * T + T * T * T / 538841.0 - T * T * T * T / 65194000.0) % 360
     
-    # Mean anomaly
-    M = math.radians((134.963 + 13.064993 * n) % 360)
+    # Mean elongation of Moon (degrees)
+    D = (297.8501921 + 445267.1114034 * T - 0.0018819 * T * T + T * T * T / 545868.0 - T * T * T * T / 113065000.0) % 360
+    D_rad = math.radians(D)
     
-    # Mean elongation
-    D = math.radians((297.850 + 12.190749 * n) % 360)
+    # Sun's mean anomaly (degrees)
+    M = (357.5291092 + 35999.0502909 * T - 0.0001536 * T * T + T * T * T / 24490000.0) % 360
+    M_rad = math.radians(M)
     
-    # Argument of latitude
-    F = math.radians((93.272 + 13.229350 * n) % 360)
+    # Moon's mean anomaly (degrees)
+    M_prime = (134.9633964 + 477198.8675055 * T + 0.0087414 * T * T + T * T * T / 69699.0 - T * T * T * T / 14712000.0) % 360
+    M_prime_rad = math.radians(M_prime)
     
-    # Longitude correction
-    longitude = L + 6.289 * math.sin(M) + 1.274 * math.sin(2*D - M) + 0.658 * math.sin(2*D)
-    longitude = longitude % 360
+    # Moon's argument of latitude (degrees)
+    F = (93.2720950 + 483202.0175233 * T - 0.0036539 * T * T - T * T * T / 3526000.0 + T * T * T * T / 863310000.0) % 360
+    F_rad = math.radians(F)
+    
+    # Longitude corrections (simplified main terms)
+    longitude_correction = 6.288774 * math.sin(M_prime_rad) + \
+                          1.274027 * math.sin(2 * D_rad - M_prime_rad) + \
+                          0.658314 * math.sin(2 * D_rad) + \
+                          0.213618 * math.sin(2 * M_prime_rad) + \
+                          -0.185116 * math.sin(M_rad) + \
+                          -0.114332 * math.sin(2 * F_rad)
+    
+    # True longitude
+    longitude = (L_prime + longitude_correction) % 360
     
     return longitude
 
 def basic_planet_positions(jd):
-    """Calculate basic positions for major planets"""
+    """Calculate basic positions for major planets - improved accuracy"""
     # Days since J2000.0
-    n = jd - 2451545.0
+    T = (jd - 2451545.0) / 36525.0  # Julian centuries
     
-    # Simplified orbital elements and calculations
-    planets = {
-        'Mercury': (252.25 + 4.092317 * n) % 360,
-        'Venus': (181.98 + 1.602136 * n) % 360,
-        'Mars': (355.43 + 0.524033 * n) % 360,
-        'Jupiter': (34.35 + 0.083129 * n) % 360,
-        'Saturn': (50.08 + 0.033493 * n) % 360,
-        'Uranus': (314.05 + 0.011733 * n) % 360,
-        'Neptune': (304.35 + 0.006000 * n) % 360,
-        'Pluto': (238.96 + 0.003982 * n) % 360
-    }
+    # More accurate orbital elements and calculations
+    planets = {}
+    
+    # Mercury
+    L_merc = (252.250906 + 149472.674635 * T) % 360
+    planets['Mercury'] = L_merc
+    
+    # Venus  
+    L_venus = (181.979801 + 58517.815676 * T) % 360
+    planets['Venus'] = L_venus
+    
+    # Mars
+    L_mars = (355.433 + 19140.299 * T) % 360
+    planets['Mars'] = L_mars
+    
+    # Jupiter
+    L_jup = (34.351519 + 3034.90567 * T) % 360
+    planets['Jupiter'] = L_jup
+    
+    # Saturn
+    L_sat = (50.077444 + 1222.11494 * T) % 360
+    planets['Saturn'] = L_sat
+    
+    # Uranus
+    L_ura = (314.055005 + 428.466998 * T) % 360
+    planets['Uranus'] = L_ura
+    
+    # Neptune
+    L_nep = (304.348665 + 218.486200 * T) % 360
+    planets['Neptune'] = L_nep
+    
+    # Pluto (approximate)
+    L_plu = (238.956 + 145.205 * T) % 360
+    planets['Pluto'] = L_plu
     
     return planets
 
 def calculate_north_node(jd):
-    """Calculate North Node position"""
+    """Calculate North Node position - more accurate"""
     # Days since J2000.0
-    n = jd - 2451545.0
+    T = (jd - 2451545.0) / 36525.0  # Julian centuries
     
-    # Mean longitude of ascending node
-    node_lon = (125.045 - 0.052954 * n) % 360
+    # Mean longitude of ascending node (degrees)
+    # More accurate formula
+    node_lon = (125.04452 - 1934.136261 * T + 0.0020708 * T * T + T * T * T / 450000.0) % 360
     
     return node_lon
 
