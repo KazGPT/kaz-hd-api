@@ -7,6 +7,9 @@ import logging
 import swisseph as swe
 import math
 
+# Force use of built-in ephemeris for reliability
+swe.set_ephe_path("")
+
 app = Flask(__name__)
 
 # Set absolute ephemeris path for Render
