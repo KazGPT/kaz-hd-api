@@ -1,5 +1,6 @@
 flask==2.3.3
-flatlib==0.9.0
+flatlib==0.2.3
 pyswisseph==2.10.3
 requests==2.31.0
 gunicorn==22.0.0
+python-dateutil==2.8.2
