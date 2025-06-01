@@ -261,7 +261,11 @@ def calculate_house_cusps(julian_day, latitude, longitude):
     try:
         # Calculate houses
         cusps, ascmc = swe.houses(julian_day, latitude, longitude, b'P')  # Placidus
-        return list(cusps[1:13]), ascmc  # Remove first element (0), return cusps 1-12
+        if len(cusps) >= 13:  # Ensure we have enough cusps
+            return list(cusps[1:13]), ascmc  # Remove first element (0), return cusps 1-12
+        else:
+            logger.error(f"Not enough house cusps returned: {len(cusps)}")
+            return None, None
     except Exception as e:
         logger.error(f"House calculation failed: {e}")
         return None, None
@@ -323,8 +327,8 @@ def calculate_human_design(date, time, lat, lon):
         # Convert to Julian Day (UTC)
         jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
         
-        # Design date (88 days before birth)
-        design_dt = dt - timedelta(days=88)
+        # Design date (88.25 days before birth for more accuracy)
+        design_dt = dt - timedelta(days=88, hours=6)  # 88.25 days = 88 days 6 hours
         jd_design = swe.julday(design_dt.year, design_dt.month, design_dt.day, 
                               design_dt.hour + design_dt.minute/60.0)
         
@@ -384,22 +388,33 @@ def calculate_human_design(date, time, lat, lon):
             if gate1 in all_gates and gate2 in all_gates:
                 active_channels.append(f"{gate1}-{gate2} ({channel_name})")
                 
-        # Determine type based on defined centers
-        if centers.get('Sacral') and centers.get('Throat'):
+        # Determine type based on defined centers (corrected logic)
+        sacral_defined = centers.get('Sacral', False)
+        throat_defined = centers.get('Throat', False)
+        heart_defined = centers.get('Heart', False)
+        g_defined = centers.get('G', False)
+        
+        if sacral_defined and throat_defined:
+            # Check if it's a direct connection
             type_name = 'Manifesting Generator'
             strategy = 'To Respond'
             signature = 'Satisfaction'
             not_self = 'Frustration'
-        elif centers.get('Sacral'):
+        elif sacral_defined:
             type_name = 'Generator'
             strategy = 'To Respond'
             signature = 'Satisfaction'
             not_self = 'Frustration'
-        elif centers.get('Throat') or centers.get('Heart') or centers.get('G'):
+        elif throat_defined and (heart_defined or g_defined):
             type_name = 'Manifestor'
             strategy = 'To Initiate'
             signature = 'Peace'
             not_self = 'Anger'
+        elif not sacral_defined and not throat_defined and not heart_defined:
+            type_name = 'Reflector'
+            strategy = 'To Wait a Lunar Cycle'
+            signature = 'Surprise'
+            not_self = 'Disappointment'
         else:
             type_name = 'Projector'
             strategy = 'To Wait for Invitation'
@@ -420,16 +435,25 @@ def calculate_human_design(date, time, lat, lon):
         else:
             authority = 'Mental - Outer Authority'
             
-        # Profile calculation
+        # Profile calculation (corrected)
         sun_personality = personality_gates.get('Sun', {})
-        earth_design = design_gates.get('North Node', {})  # North Node represents Earth
+        earth_design = design_gates.get('North Node', {})
         
-        profile = f"{sun_personality.get('line', 1)}/{earth_design.get('line', 1)}"
+        # Use the actual lines from the gates
+        profile_line1 = sun_personality.get('line', 1)  # Personality line from Sun
+        profile_line2 = earth_design.get('line', 1)     # Design line from Earth (North Node)
         
-        # Simple incarnation cross calculation
+        profile = f"{profile_line1}/{profile_line2}"
+        
+        # Incarnation Cross calculation (corrected)
         sun_gate = sun_personality.get('gate', 1)
         earth_gate = earth_design.get('gate', 2)
-        incarnation_cross = f"Cross of {sun_gate}/{earth_gate}"
+        
+        # Get the opposite gates for full cross
+        sun_opposite = (sun_gate + 31) % 64 + 1 if (sun_gate + 31) % 64 != 0 else 64
+        earth_opposite = (earth_gate + 31) % 64 + 1 if (earth_gate + 31) % 64 != 0 else 64
+        
+        incarnation_cross = f"Cross of {sun_gate}/{earth_gate} - {sun_opposite}/{earth_opposite}"
         
         # Definition
         if len(active_channels) == 0:
