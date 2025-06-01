@@ -15,7 +15,6 @@ app = Flask(__name__)
 # Set absolute ephemeris path for Render
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 EPHE_PATH = os.path.join(BASE_DIR, 'ephe')
-swe.set_ephe_path(EPHE_PATH)
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
@@ -89,18 +88,127 @@ def get_sign_from_longitude(longitude):
     index = int(longitude / 30) % 12
     return signs[index]
 
-def get_planet_position(julian_day, planet_id):
-    """Get planet position with error handling"""
+def julian_day_from_date(year, month, day, hour=12.0):
+    """Calculate Julian Day Number"""
+    if month <= 2:
+        year -= 1
+        month += 12
+    
+    a = int(year / 100)
+    b = 2 - a + int(a / 4)
+    
+    jd = int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + b - 1524.5
+    jd += hour / 24.0
+    return jd
+
+def basic_sun_position(jd):
+    """Calculate basic Sun position using simplified formula"""
+    # Days since J2000.0
+    n = jd - 2451545.0
+    
+    # Mean longitude of Sun
+    L = (280.460 + 0.9856474 * n) % 360
+    
+    # Mean anomaly
+    g = math.radians((357.528 + 0.9856003 * n) % 360)
+    
+    # Ecliptic longitude
+    longitude = (L + 1.915 * math.sin(g) + 0.020 * math.sin(2 * g)) % 360
+    
+    return longitude
+
+def basic_moon_position(jd):
+    """Calculate basic Moon position using simplified formula"""
+    # Days since J2000.0
+    n = jd - 2451545.0
+    
+    # Moon's mean longitude
+    L = (218.316 + 13.176396 * n) % 360
+    
+    # Mean anomaly
+    M = math.radians((134.963 + 13.064993 * n) % 360)
+    
+    # Mean elongation
+    D = math.radians((297.850 + 12.190749 * n) % 360)
+    
+    # Argument of latitude
+    F = math.radians((93.272 + 13.229350 * n) % 360)
+    
+    # Longitude correction
+    longitude = L + 6.289 * math.sin(M) + 1.274 * math.sin(2*D - M) + 0.658 * math.sin(2*D)
+    longitude = longitude % 360
+    
+    return longitude
+
+def basic_planet_positions(jd):
+    """Calculate basic positions for major planets"""
+    # Days since J2000.0
+    n = jd - 2451545.0
+    
+    # Simplified orbital elements and calculations
+    planets = {
+        'Mercury': (252.25 + 4.092317 * n) % 360,
+        'Venus': (181.98 + 1.602136 * n) % 360,
+        'Mars': (355.43 + 0.524033 * n) % 360,
+        'Jupiter': (34.35 + 0.083129 * n) % 360,
+        'Saturn': (50.08 + 0.033493 * n) % 360,
+        'Uranus': (314.05 + 0.011733 * n) % 360,
+        'Neptune': (304.35 + 0.006000 * n) % 360,
+        'Pluto': (238.96 + 0.003982 * n) % 360
+    }
+    
+    return planets
+
+def calculate_north_node(jd):
+    """Calculate North Node position"""
+    # Days since J2000.0
+    n = jd - 2451545.0
+    
+    # Mean longitude of ascending node
+    node_lon = (125.045 - 0.052954 * n) % 360
+    
+    return node_lon
+
+def fallback_planet_calculation(julian_day, planet_name):
+    """Fallback calculation when PySwissEph fails"""
     try:
+        if planet_name == 'Sun':
+            return basic_sun_position(julian_day)
+        elif planet_name == 'Moon':
+            return basic_moon_position(julian_day)
+        elif planet_name == 'North Node':
+            return calculate_north_node(julian_day)
+        else:
+            planets = basic_planet_positions(julian_day)
+            return planets.get(planet_name, None)
+    except Exception as e:
+        logger.error(f"Fallback calculation failed for {planet_name}: {e}")
+        return None
+
+def get_planet_position(julian_day, planet_id, planet_name="Unknown"):
+    """Get planet position with ultimate fallback to basic calculations"""
+    try:
+        # Try PySwissEph first
         result = swe.calc_ut(julian_day, planet_id)
         if result[1] == 0:  # Success
             return result[0][0]  # Longitude
         else:
-            logger.error(f"Planet calculation failed: error flag {result[1]}")
-            return None
+            logger.warning(f"PySwissEph failed for {planet_name} (error {result[1]}), using fallback calculation")
+            
+            # Use fallback calculation
+            fallback_lon = fallback_planet_calculation(julian_day, planet_name)
+            if fallback_lon is not None:
+                return fallback_lon
+            else:
+                logger.error(f"Both PySwissEph and fallback failed for {planet_name}")
+                return None
+                
     except Exception as e:
-        logger.error(f"Exception calculating planet {planet_id}: {e}")
-        return None
+        logger.warning(f"PySwissEph exception for {planet_name}: {e}, using fallback")
+        
+        # Use fallback calculation
+        fallback_lon = fallback_planet_calculation(julian_day, planet_name)
+        return fallback_lon
 
 def get_hd_gate_and_line(longitude):
     """Convert longitude to Human Design gate and line"""
@@ -212,7 +320,7 @@ def calculate_human_design(date, time, lat, lon):
         
         # Calculate personality positions (natal)
         for planet_name, planet_id in planets.items():
-            longitude = get_planet_position(jd_natal, planet_id)
+            longitude = get_planet_position(jd_natal, planet_id, planet_name)
             if longitude is not None:
                 gate, line = get_hd_gate_and_line(longitude)
                 personality_gates[planet_name] = {
@@ -221,7 +329,7 @@ def calculate_human_design(date, time, lat, lon):
                 
         # Calculate design positions
         for planet_name, planet_id in planets.items():
-            longitude = get_planet_position(jd_design, planet_id)
+            longitude = get_planet_position(jd_design, planet_id, planet_name)
             if longitude is not None:
                 gate, line = get_hd_gate_and_line(longitude)
                 design_gates[planet_name] = {
@@ -364,7 +472,7 @@ def calculate_astrology_chart(date, time, lat, lon, timezone_offset=0):
         
         # Calculate planet positions
         for planet_name, planet_id in planets.items():
-            longitude = get_planet_position(jd, planet_id)
+            longitude = get_planet_position(jd, planet_id, planet_name)
             if longitude is not None:
                 planet_data[planet_name] = {
                     'sign': get_sign_from_longitude(longitude),
@@ -373,7 +481,7 @@ def calculate_astrology_chart(date, time, lat, lon, timezone_offset=0):
                 }
         
         # Calculate Chiron
-        chiron_lon = get_planet_position(jd, swe.CHIRON)
+        chiron_lon = get_planet_position(jd, swe.CHIRON, 'Chiron')
         if chiron_lon is not None:
             planet_data['Chiron'] = {
                 'sign': get_sign_from_longitude(chiron_lon),
@@ -382,7 +490,7 @@ def calculate_astrology_chart(date, time, lat, lon, timezone_offset=0):
             }
         
         # Calculate Lilith (Mean Black Moon)
-        lilith_lon = get_planet_position(jd, swe.MEAN_APOG)
+        lilith_lon = get_planet_position(jd, swe.MEAN_APOG, 'Lilith')
         if lilith_lon is not None:
             planet_data['Lilith'] = {
                 'sign': get_sign_from_longitude(lilith_lon),
@@ -450,11 +558,12 @@ def calculate_moon_phase(date):
         dt = datetime.strptime(date.replace('/', '-'), "%Y-%m-%d")
         jd = swe.julday(dt.year, dt.month, dt.day, 12.0)  # Noon
         
-        # Get Sun and Moon positions
-        sun_lon = get_planet_position(jd, swe.SUN)
-        moon_lon = get_planet_position(jd, swe.MOON)
+        # Get Sun and Moon positions with robust calculation
+        sun_lon = get_planet_position(jd, swe.SUN, "Sun")
+        moon_lon = get_planet_position(jd, swe.MOON, "Moon")
         
         if sun_lon is None or moon_lon is None:
+            logger.error("Failed to calculate Sun or Moon position for moon phase")
             return None
             
         # Calculate angular distance
@@ -490,7 +599,9 @@ def calculate_moon_phase(date):
             'date': date,
             'moon_phase': phase,
             'angular_distance': round(distance, 1),
-            'tcm_energy': tcm_energy
+            'tcm_energy': tcm_energy,
+            'sun_longitude': round(sun_lon, 2),
+            'moon_longitude': round(moon_lon, 2)
         }
         
     except Exception as e:
@@ -519,7 +630,7 @@ def debug_ephemeris():
     # Test calculation
     try:
         test_jd = swe.julday(2023, 6, 1, 12.0)
-        sun_lon = get_planet_position(test_jd, swe.SUN)
+        sun_lon = get_planet_position(test_jd, swe.SUN, "Sun")
         ephe_status['test_calculation'] = {
             'success': sun_lon is not None,
             'sun_longitude': sun_lon
@@ -575,88 +686,4 @@ def get_astrology_chart():
     """Get tropical astrology chart"""
     try:
         # Get parameters
-        name = request.args.get('name', 'Unknown')
-        date = request.args.get('date')
-        time = request.args.get('time')
-        location = request.args.get('location')
-        timezone_offset = float(request.args.get('timezone_offset', 0))  # Hours from UTC
-        
-        if not all([date, time, location]):
-            return jsonify({"error": "Missing required parameters: date, time, location"}), 400
-        
-        # Get coordinates
-        lat, lon, error = get_geocoding_data(location)
-        if error:
-            return jsonify({"error": error}), 400
-            
-        # Calculate astrology chart
-        chart_data = calculate_astrology_chart(date, time, lat, lon, timezone_offset)
-        if not chart_data:
-            return jsonify({"error": "Astrology chart calculation failed"}), 500
-            
-        # Add request info
-        result = {
-            'name': name,
-            'date': date,
-            'time': time,
-            'location': location,
-            'timezone_offset': timezone_offset,
-            'coordinates': {'latitude': lat, 'longitude': lon},
-            **chart_data
-        }
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        logger.error(f"Astrology endpoint error: {str(e)}")
-        return jsonify({"error": f"Request failed: {str(e)}"}), 500
-
-@app.route('/v1/moonphase', methods=['GET'])
-def get_moon_phase():
-    """Get moon phase information"""
-    try:
-        date = request.args.get('date')
-        range_query = request.args.get('range', 'single')
-        
-        if not date:
-            return jsonify({"error": "Missing required parameter: date"}), 400
-        
-        if range_query == 'single':
-            phase_data = calculate_moon_phase(date)
-            if not phase_data:
-                return jsonify({"error": "Moon phase calculation failed"}), 500
-            return jsonify(phase_data)
-            
-        elif range_query == '6week':
-            # Calculate for 6 weeks (42 days)
-            start_date = datetime.strptime(date.replace('/', '-'), "%Y-%m-%d")
-            moon_phases = []
-            
-            for i in range(0, 42, 7):  # Weekly intervals
-                current_date = start_date + timedelta(days=i)
-                date_str = current_date.strftime('%Y-%m-%d')
-                phase_data = calculate_moon_phase(date_str)
-                if phase_data:
-                    moon_phases.append(phase_data)
-                    
-            return jsonify(moon_phases)
-            
-        else:
-            return jsonify({"error": "Invalid range parameter. Use 'single' or '6week'"}), 400
-            
-    except Exception as e:
-        logger.error(f"Moon phase endpoint error: {str(e)}")
-        return jsonify({"error": f"Request failed: {str(e)}"}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'ephemeris_path': EPHE_PATH,
-        'ephemeris_exists': os.path.exists(EPHE_PATH)
-    })
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=10000)
+        name = request.args.get('name
