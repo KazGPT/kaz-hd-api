@@ -13,15 +13,26 @@ app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 EPHE_PATH = os.path.join(BASE_DIR, 'ephe')
 
-# Try to set ephemeris path, but don't fail if it doesn't exist
+# Try to use the built-in ephemeris more effectively
 try:
     if os.path.exists(EPHE_PATH):
         swe.set_ephe_path(EPHE_PATH)
+        logger.info(f"Set ephemeris path to: {EPHE_PATH}")
     else:
-        # Use built-in ephemeris
+        # Force use of built-in ephemeris
         swe.set_ephe_path("")
+        logger.info("Using built-in ephemeris")
+        
+    # Test the ephemeris immediately
+    test_jd = swe.julday(2000, 1, 1, 12.0)
+    test_result = swe.calc_ut(test_jd, swe.SUN)
+    if test_result[1] == 0:
+        logger.info(f"Ephemeris test successful: Sun at {test_result[0][0]:.2f}°")
+    else:
+        logger.warning(f"Ephemeris test failed with error: {test_result[1]}")
+        
 except Exception as e:
-    logging.warning(f"Could not set ephemeris path: {e}")
+    logger.error(f"Ephemeris setup failed: {e}")
     swe.set_ephe_path("")
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
@@ -233,20 +244,31 @@ def fallback_planet_calculation(julian_day, planet_name):
 def get_planet_position(julian_day, planet_id, planet_name="Unknown"):
     """Get planet position with ultimate fallback to basic calculations"""
     try:
-        # Try PySwissEph first
-        result = swe.calc_ut(julian_day, planet_id)
-        if result[1] == 0:  # Success
-            return result[0][0]  # Longitude
+        # Try PySwissEph first with different flags
+        flags = [swe.FLG_SWIEPH, swe.FLG_MOSEPH, swe.FLG_JPLEPH]
+        
+        for flag in flags:
+            try:
+                result = swe.calc_ut(julian_day, planet_id, flag)
+                if result[1] == 0:  # Success
+                    logger.debug(f"Successfully calculated {planet_name} with flag {flag}")
+                    return result[0][0]  # Longitude
+                else:
+                    logger.debug(f"PySwissEph failed for {planet_name} with flag {flag} (error {result[1]})")
+            except Exception as e:
+                logger.debug(f"Exception with flag {flag} for {planet_name}: {e}")
+                continue
+                
+        # If all PySwissEph methods fail, use fallback
+        logger.warning(f"All PySwissEph methods failed for {planet_name}, using fallback calculation")
+        
+        # Use fallback calculation
+        fallback_lon = fallback_planet_calculation(julian_day, planet_name)
+        if fallback_lon is not None:
+            return fallback_lon
         else:
-            logger.warning(f"PySwissEph failed for {planet_name} (error {result[1]}), using fallback calculation")
-            
-            # Use fallback calculation
-            fallback_lon = fallback_planet_calculation(julian_day, planet_name)
-            if fallback_lon is not None:
-                return fallback_lon
-            else:
-                logger.error(f"Both PySwissEph and fallback failed for {planet_name}")
-                return None
+            logger.error(f"Both PySwissEph and fallback failed for {planet_name}")
+            return None
                 
     except Exception as e:
         logger.warning(f"PySwissEph exception for {planet_name}: {e}, using fallback")
