@@ -13,17 +13,22 @@ app = Flask(__name__)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 EPHE_PATH = os.path.join(BASE_DIR, 'ephe')
 
-# Try to use the built-in ephemeris more effectively
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+
+# Setup logging FIRST - this is the fix for the NameError
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Now setup ephemeris with proper error handling
 try:
     if os.path.exists(EPHE_PATH):
         swe.set_ephe_path(EPHE_PATH)
         logger.info(f"Set ephemeris path to: {EPHE_PATH}")
     else:
-        # Force use of built-in ephemeris
         swe.set_ephe_path("")
         logger.info("Using built-in ephemeris")
         
-    # Test the ephemeris immediately
+    # Test ephemeris
     test_jd = swe.julday(2000, 1, 1, 12.0)
     test_result = swe.calc_ut(test_jd, swe.SUN)
     if test_result[1] == 0:
@@ -34,11 +39,6 @@ try:
 except Exception as e:
     logger.error(f"Ephemeris setup failed: {e}")
     swe.set_ephe_path("")
-
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 # Zodiac Elements and Modes (Tropical Zodiac)
 ELEMENTS = {
