@@ -305,12 +305,15 @@ def get_hd_gate_and_line(longitude):
 
 def calculate_house_position(planet_lon, house_cusps):
     """Determine which house a planet is in"""
-    if planet_lon is None or not house_cusps:
+    if planet_lon is None or not house_cusps or len(house_cusps) < 12:
         return None
         
+    # Use only the first 12 house cusps
+    cusps = house_cusps[:12]
+    
     for i in range(12):
-        current_cusp = house_cusps[i]
-        next_cusp = house_cusps[(i + 1) % 12]
+        current_cusp = cusps[i]
+        next_cusp = cusps[(i + 1) % 12]
         
         # Handle houses that cross 0 degrees
         if next_cusp < current_cusp:
@@ -327,8 +330,8 @@ def calculate_house_cusps(julian_day, latitude, longitude):
     try:
         # Calculate houses
         cusps, ascmc = swe.houses(julian_day, latitude, longitude, b'P')  # Placidus
-        if len(cusps) >= 13:  # Ensure we have enough cusps
-            return list(cusps[1:13]), ascmc  # Remove first element (0), return cusps 1-12
+        if len(cusps) >= 12:  # Swiss Ephemeris returns 12 house cusps (1-12)
+            return list(cusps), ascmc  # Return all cusps as-is
         else:
             logger.error(f"Not enough house cusps returned: {len(cusps)}")
             return None, None
@@ -665,11 +668,12 @@ def calculate_astrology_chart(date, time, lat, lon, timezone_offset=0):
         # House information
         house_info = []
         for i, cusp in enumerate(house_cusps):
-            house_info.append({
-                'house': i + 1,
-                'sign': get_sign_from_longitude(cusp),
-                'degree': round(cusp, 2)
-            })
+            if i < 12:  # Only process houses 1-12
+                house_info.append({
+                    'house': i + 1,
+                    'sign': get_sign_from_longitude(cusp),
+                    'degree': round(cusp, 2)
+                })
         
         return {
             'planets': planet_data,
