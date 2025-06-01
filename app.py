@@ -290,8 +290,35 @@ def get_geocoding_data(location):
 def calculate_human_design(date, time, lat, lon):
     """Calculate Human Design chart"""
     try:
-        # Parse datetime
-        dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %H:%M")
+        # Parse datetime - handle both 12-hour and 24-hour formats
+        time_clean = time.strip()
+        
+        # Try different time formats
+        dt = None
+        date_clean = date.replace('/', '-')
+        
+        # Try 12-hour format first (09:05 PM)
+        try:
+            dt = datetime.strptime(f"{date_clean} {time_clean}", "%Y-%m-%d %I:%M %p")
+        except ValueError:
+            pass
+            
+        # Try 24-hour format (21:05)
+        if dt is None:
+            try:
+                dt = datetime.strptime(f"{date_clean} {time_clean}", "%Y-%m-%d %H:%M")
+            except ValueError:
+                pass
+                
+        # Try without seconds
+        if dt is None:
+            try:
+                dt = datetime.strptime(f"{date_clean} {time_clean}", "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                pass
+                
+        if dt is None:
+            raise ValueError(f"Could not parse time format: {time_clean}")
         
         # Convert to Julian Day (UTC)
         jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
@@ -437,8 +464,28 @@ def calculate_human_design(date, time, lat, lon):
 def calculate_astrology_chart(date, time, lat, lon, timezone_offset=0):
     """Calculate tropical astrology chart using pure PySwissEph"""
     try:
-        # Parse datetime and convert to Julian Day
-        dt = datetime.strptime(f"{date.replace('/', '-')} {time}", "%Y-%m-%d %H:%M")
+        # Parse datetime - handle both 12-hour and 24-hour formats
+        time_clean = time.strip()
+        date_clean = date.replace('/', '-')
+        
+        # Try different time formats
+        dt = None
+        
+        # Try 12-hour format first (09:05 PM)
+        try:
+            dt = datetime.strptime(f"{date_clean} {time_clean}", "%Y-%m-%d %I:%M %p")
+        except ValueError:
+            pass
+            
+        # Try 24-hour format (21:05)
+        if dt is None:
+            try:
+                dt = datetime.strptime(f"{date_clean} {time_clean}", "%Y-%m-%d %H:%M")
+            except ValueError:
+                pass
+                
+        if dt is None:
+            raise ValueError(f"Could not parse time format: {time_clean}")
         
         # Adjust for timezone (convert to UTC)
         dt_utc = dt - timedelta(hours=timezone_offset)
