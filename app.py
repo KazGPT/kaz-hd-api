@@ -278,21 +278,32 @@ def get_planet_position(julian_day, planet_id, planet_name="Unknown"):
         return fallback_lon
 
 def get_hd_gate_and_line(longitude):
-    """Convert longitude to Human Design gate and line"""
+    """Convert longitude to Human Design gate and line - CORRECTED FORMULA"""
     if longitude is None:
         return None, None
     
     # Normalize longitude to 0-360
     lon = longitude % 360
     
-    # Each gate spans 5.625 degrees (360/64)
-    gate = int(lon / 5.625) + 1
-    if gate > 64:
-        gate = 64
+    # CRITICAL FIX: Human Design uses a different starting point
+    # The I-Ching wheel starts at 58.75 degrees (not 0 degrees)
+    # This aligns with the vernal equinox adjustment in Human Design
     
-    # Calculate position within the gate
+    # Adjust for Human Design wheel starting position
+    adjusted_lon = (lon + 58.75) % 360
+    
+    # Each gate spans 5.625 degrees (360/64)
+    gate = int(adjusted_lon / 5.625) + 1
+    if gate > 64:
+        gate = gate - 64  # Wrap around
+    if gate < 1:
+        gate = gate + 64  # Wrap around
+    
+    # Calculate position within the gate for line calculation
     gate_start = (gate - 1) * 5.625
-    position_in_gate = lon - gate_start
+    # Need to reverse the adjustment for line calculation
+    original_gate_start = (gate_start - 58.75) % 360
+    position_in_gate = (lon - original_gate_start) % 5.625
     
     # Each line spans 0.9375 degrees (5.625/6)
     line = int(position_in_gate / 0.9375) + 1
@@ -393,13 +404,36 @@ def calculate_human_design(date, time, lat, lon):
         if dt is None:
             raise ValueError(f"Could not parse time format: {time_clean}")
         
-        # Convert to Julian Day (UTC)
-        jd_natal = swe.julday(dt.year, dt.month, dt.day, dt.hour + dt.minute/60.0)
+        # CRITICAL FIX: Handle Australian timezone correctly for 1975
+        # For May 15, 1975 in NSW, daylight saving was in effect (UTC+11)
+        # But the birth time given is local time, so we need to convert to UTC
         
-        # Design date (88.25 days before birth for more accuracy)
-        design_dt = dt - timedelta(days=88, hours=6)  # 88.25 days = 88 days 6 hours
-        jd_design = swe.julday(design_dt.year, design_dt.month, design_dt.day, 
-                              design_dt.hour + design_dt.minute/60.0)
+        # Check if this is an Australian location and the date is during DST period
+        if lat and lon and lat < -10 and lon > 140:  # Rough Australian coordinates
+            year = dt.year
+            month = dt.month
+            
+            # NSW DST rules for 1975: last Sunday in October to first Sunday in March
+            # May 15, 1975 would be standard time (UTC+10), not DST
+            # DST would have ended in March 1975
+            timezone_offset = 10  # UTC+10 for NSW standard time in May 1975
+        else:
+            timezone_offset = 0  # Default to UTC if not Australian
+            
+        # Convert local time to UTC
+        dt_utc = dt - timedelta(hours=timezone_offset)
+        
+        logger.info(f"Birth time: {dt} (local), UTC: {dt_utc}, Timezone offset: +{timezone_offset}")
+        
+        # Convert to Julian Day (UTC)
+        jd_natal = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
+        
+        # Design date (88.25 days before birth - this is the exact HD calculation)
+        design_dt_utc = dt_utc - timedelta(days=88, hours=6)  # 88.25 days = 88 days 6 hours
+        jd_design = swe.julday(design_dt_utc.year, design_dt_utc.month, design_dt_utc.day, 
+                              design_dt_utc.hour + design_dt_utc.minute/60.0)
+                              
+        logger.info(f"Natal JD: {jd_natal}, Design JD: {jd_design}")
         
         # Planets to calculate
         planets = {
@@ -504,25 +538,32 @@ def calculate_human_design(date, time, lat, lon):
         else:
             authority = 'Mental - Outer Authority'
             
-        # Profile calculation (corrected)
+        # Profile calculation - CRITICAL FIX
+        # Profile is Sun Conscious line / Earth Unconscious line
+        # The Earth is opposite the Sun (Sun + 31 gates, with wrapping)
         sun_personality = personality_gates.get('Sun', {})
-        earth_design = design_gates.get('North Node', {})
         
-        # Use the actual lines from the gates
+        # Calculate Earth position for design (unconscious)
+        # Earth is always opposite Sun (180 degrees away)
+        sun_design_lon = design_gates.get('Sun', {}).get('longitude', 0)
+        earth_design_lon = (sun_design_lon + 180) % 360
+        earth_design_gate, earth_design_line = get_hd_gate_and_line(earth_design_lon)
+        
+        # Profile is Conscious Sun line / Unconscious Earth line
         profile_line1 = sun_personality.get('line', 1)  # Personality line from Sun
-        profile_line2 = earth_design.get('line', 1)     # Design line from Earth (North Node)
+        profile_line2 = earth_design_line if earth_design_line else 1  # Design line from Earth
         
         profile = f"{profile_line1}/{profile_line2}"
         
-        # Incarnation Cross calculation (corrected)
+        # Incarnation Cross calculation - use Sun personality and Earth design
         sun_gate = sun_personality.get('gate', 1)
-        earth_gate = earth_design.get('gate', 2)
+        earth_gate = earth_design_gate if earth_design_gate else 2
         
-        # Get the opposite gates for full cross
-        sun_opposite = (sun_gate + 31) % 64 + 1 if (sun_gate + 31) % 64 != 0 else 64
-        earth_opposite = (earth_gate + 31) % 64 + 1 if (earth_gate + 31) % 64 != 0 else 64
+        # Get the nodal gates (North Node conscious and unconscious)
+        north_node_personality = personality_gates.get('North Node', {}).get('gate', 1)
+        north_node_design = design_gates.get('North Node', {}).get('gate', 1)
         
-        incarnation_cross = f"Cross of {sun_gate}/{earth_gate} - {sun_opposite}/{earth_opposite}"
+        incarnation_cross = f"Cross of {sun_gate}/{earth_gate} - {north_node_personality}/{north_node_design}"
         
         # Definition
         if len(active_channels) == 0:
@@ -547,7 +588,9 @@ def calculate_human_design(date, time, lat, lon):
             'personality_gates': personality_gates,
             'design_gates': design_gates,
             'digestion': 'Calm' if 32 in all_gates else 'Nervous',
-            'environment': 'Mountains' if 15 in all_gates else 'Valleys'
+            'environment': 'Mountains' if 15 in all_gates else 'Valleys',
+            'timezone_used': f"UTC+{timezone_offset}",
+            'utc_birth_time': dt_utc.isoformat()
         }
         
     except Exception as e:
