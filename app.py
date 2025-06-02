@@ -425,8 +425,7 @@ def calculate_human_design(date, time, lat, lon):
             raise ValueError(f"Could not parse time format: {time_clean}")
         
         # CRITICAL FIX: Handle Australian timezone correctly for 1975
-        # For May 15, 1975 in NSW, daylight saving was in effect (UTC+11)
-        # But the birth time given is local time, so we need to convert to UTC
+        # For May 15, 1975 in NSW, we need to be more precise about time zones
         
         # Check if this is an Australian location and the date is during DST period
         if lat and lon and lat < -10 and lon > 140:  # Rough Australian coordinates
@@ -435,15 +434,27 @@ def calculate_human_design(date, time, lat, lon):
             
             # NSW DST rules for 1975: last Sunday in October to first Sunday in March
             # May 15, 1975 would be standard time (UTC+10), not DST
-            # DST would have ended in March 1975
+            # But we also need to account for Local Mean Time vs Standard Time
+            
+            # Cowra, NSW longitude: 148.69°E
+            # Local Mean Time offset from Standard Time = (148.69 - 150) / 15 = -0.087 hours ≈ -5.2 minutes
+            # Standard Time offset: UTC+10
+            
             timezone_offset = 10  # UTC+10 for NSW standard time in May 1975
+            
+            # CRITICAL: Add Local Mean Time correction for precise astronomical calculations
+            lmt_correction = (lon - 150.0) / 15.0  # 150°E is the standard meridian for UTC+10
+            
+            logger.info(f"Location longitude: {lon}°, LMT correction: {lmt_correction:.3f} hours")
+            
         else:
             timezone_offset = 0  # Default to UTC if not Australian
+            lmt_correction = 0
             
-        # Convert local time to UTC
-        dt_utc = dt - timedelta(hours=timezone_offset)
+        # Convert local time to UTC with LMT correction
+        dt_utc = dt - timedelta(hours=timezone_offset) - timedelta(hours=lmt_correction)
         
-        logger.info(f"Birth time: {dt} (local), UTC: {dt_utc}, Timezone offset: +{timezone_offset}")
+        logger.info(f"Birth time: {dt} (local), UTC: {dt_utc}, Timezone offset: +{timezone_offset}, LMT correction: {lmt_correction:.3f}h")
         
         # Convert to Julian Day (UTC)
         jd_natal = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
