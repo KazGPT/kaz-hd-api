@@ -941,66 +941,103 @@ def test_karen_chart():
 
 @app.route('/debug/gate-calculation', methods=['GET'])
 def debug_gate_calculation():
-    """Debug endpoint to test gate calculations against known results"""
+    """Debug endpoint to test gate and line calculations against known results"""
     longitude = float(request.args.get('longitude', 54.00655393218436))  # Karen's actual Sun longitude
     
-    # Test different possible sequences
+    # REVERSE ENGINEER: If Karen has Gate 23 at longitude 54.006°, what should the sequence be?
+    # Gate index 9 should equal Gate 23
+    
+    # Test different sequences where index 9 = Gate 23
     sequences = {
-        'current_sequence': [
-            41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 25, 17, 21, 51, 42, 3,
-            27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39, 53, 62, 56,
-            31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48, 57, 32, 50,
-            28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38, 54, 61, 60
-        ],
-        'aries_gate25_sequence': [
-            25, 51, 3, 27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39,
-            53, 62, 56, 31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48,
-            57, 32, 50, 28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38,
-            54, 61, 60, 41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 17, 21, 42
-        ],
-        'simple_mathematical': list(range(1, 65))  # 1-64 to test pure math
+        'test_sequence_1': [1, 2, 3, 4, 5, 6, 7, 8, 9, 23, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 10],
+        'reverse_engineer': [None] * 64  # We'll calculate this
+    }
+    
+    # Calculate what the sequence should be for Karen's chart
+    # If longitude 54.006° should give Gate 23, Line 6
+    expected_gate_index = 9  # int(54.006 / 5.625)
+    sequences['reverse_engineer'][expected_gate_index] = 23
+    
+    # Test different line calculation methods
+    line_methods = {
+        'current_method': lambda pos: int((pos + 1e-10) / 0.9375) + 1,
+        'simple_division': lambda pos: int(pos / 0.9375) + 1,
+        'rounded_division': lambda pos: round(pos / 0.9375) + 1,
+        'ceiling_method': lambda pos: math.ceil(pos / 0.9375),
+        'different_degrees': lambda pos: int(pos / (5.625/6)) + 1,  # Exact 6th division
+        'floor_plus_correction': lambda pos: math.floor(pos / 0.9375) + 1,
+        'line6_specific': lambda pos: 6 if pos >= 4.6875 else int(pos / 0.9375) + 1,  # Special handling for line 6
     }
     
     results = {}
     degrees_per_gate = 5.625
-    degrees_per_line = 0.9375
     
-    for name, sequence in sequences.items():
-        # Calculate gate index
-        gate_index = int(longitude / degrees_per_gate)
-        if gate_index >= 64:
-            gate_index = 0
+    # Test gate calculations
+    gate_index = int(longitude / degrees_per_gate)
+    position_in_gate = longitude % degrees_per_gate
+    
+    for seq_name, sequence in sequences.items():
+        if sequence[gate_index] is not None:
+            gate = sequence[gate_index]
+            
+            # Test different line methods
+            line_results = {}
+            for method_name, method in line_methods.items():
+                try:
+                    line = method(position_in_gate)
+                    # Clamp to 1-6 range
+                    line = max(1, min(6, line))
+                    line_results[method_name] = {
+                        'line': line,
+                        'matches_karen_line': line == 6
+                    }
+                except:
+                    line_results[method_name] = {'line': 'error', 'matches_karen_line': False}
+            
+            results[seq_name] = {
+                'gate': gate,
+                'gate_index': gate_index,
+                'position_in_gate': round(position_in_gate, 6),
+                'matches_karen_gate': gate == 23,
+                'line_methods': line_results
+            }
+    
+    # Also test if we need a different starting point (offset)
+    offset_tests = {}
+    for offset in [0, 15, 30, -15, -30]:  # Test different starting points
+        adjusted_longitude = (longitude + offset) % 360
+        adj_gate_index = int(adjusted_longitude / degrees_per_gate)
+        adj_position = adjusted_longitude % degrees_per_gate
+        adj_line = int((adj_position + 1e-10) / 0.9375) + 1
+        adj_line = max(1, min(6, adj_line))
         
-        # Get gate from sequence
-        gate = sequence[gate_index]
-        
-        # Calculate line
-        position_in_gate = longitude % degrees_per_gate
-        line = int((position_in_gate + 1e-10) / degrees_per_line) + 1
-        
-        # Ensure line is in valid range
-        if line > 6:
-            line = 6
-        elif line < 1:
-            line = 1
-        
-        results[name] = {
-            'gate': gate,
-            'line': line,
-            'gate_index': gate_index,
-            'position_in_gate': round(position_in_gate, 6),
-            'matches_karen': gate == 23 and line == 6
+        offset_tests[f'offset_{offset}'] = {
+            'adjusted_longitude': adjusted_longitude,
+            'gate_index': adj_gate_index,
+            'line': adj_line,
+            'would_need_gate_at_index': f"Gate 23 at index {adj_gate_index}"
         }
     
+    # Calculate what position would give Line 6
+    line_6_start = 5 * 0.9375  # 4.6875
+    line_6_end = 6 * 0.9375    # 5.625
+    
     return jsonify({
-        'test_longitude': longitude,
+        'karen_longitude': longitude,
         'expected_result': {'gate': 23, 'line': 6},
-        'degrees_per_gate': degrees_per_gate,
-        'degrees_per_line': degrees_per_line,
+        'mathematical_analysis': {
+            'gate_index': gate_index,
+            'position_in_gate': round(position_in_gate, 6),
+            'position_in_degrees': f"{position_in_gate:.3f}° out of {degrees_per_gate}°",
+            'line_6_range': f"Line 6 should be {line_6_start:.3f}° to {line_6_end:.3f}°",
+            'karen_position_vs_line6': f"Karen at {position_in_gate:.3f}° - needs Line 6 range"
+        },
         'sequence_tests': results,
-        'summary': {
-            'any_sequence_correct': any(r['matches_karen'] for r in results.values()),
-            'longitude_in_taurus': f"{longitude}° = {longitude/30:.1f} signs = Taurus"
+        'offset_tests': offset_tests,
+        'conclusions': {
+            'gate_issue': f"Need sequence where index {gate_index} = Gate 23",
+            'line_issue': f"Position {position_in_gate:.3f}° should give Line 6, not Line 4",
+            'possible_solution': "Either wrong sequence OR wrong mathematical formula OR both"
         }
     })
 
@@ -1130,8 +1167,8 @@ def health_check():
         'ephemeris_exists': os.path.exists(EPHE_PATH),
         'timezone_libraries': TIMEZONE_AVAILABLE,
         'mathematical_fix': 'Universal floating-point precision correction applied',
-        'gate_sequence': 'Corrected official Human Design sequence implemented',
-        'version': '3.1.0-debug-gate-testing'
+        'gate_sequence': 'Enhanced debug testing for gate sequence and line calculations',
+        'version': '3.2.0-enhanced-debug-mathematics'
     })
 
 if __name__ == '__main__':
