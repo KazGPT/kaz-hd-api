@@ -939,6 +939,71 @@ def test_karen_chart():
             'error': f'Test calculation failed: {str(e)}'
         }), 500
 
+@app.route('/debug/gate-calculation', methods=['GET'])
+def debug_gate_calculation():
+    """Debug endpoint to test gate calculations against known results"""
+    longitude = float(request.args.get('longitude', 54.00655393218436))  # Karen's actual Sun longitude
+    
+    # Test different possible sequences
+    sequences = {
+        'current_sequence': [
+            41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 25, 17, 21, 51, 42, 3,
+            27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39, 53, 62, 56,
+            31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48, 57, 32, 50,
+            28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38, 54, 61, 60
+        ],
+        'aries_gate25_sequence': [
+            25, 51, 3, 27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39,
+            53, 62, 56, 31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48,
+            57, 32, 50, 28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38,
+            54, 61, 60, 41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 17, 21, 42
+        ],
+        'simple_mathematical': list(range(1, 65))  # 1-64 to test pure math
+    }
+    
+    results = {}
+    degrees_per_gate = 5.625
+    degrees_per_line = 0.9375
+    
+    for name, sequence in sequences.items():
+        # Calculate gate index
+        gate_index = int(longitude / degrees_per_gate)
+        if gate_index >= 64:
+            gate_index = 0
+        
+        # Get gate from sequence
+        gate = sequence[gate_index]
+        
+        # Calculate line
+        position_in_gate = longitude % degrees_per_gate
+        line = int((position_in_gate + 1e-10) / degrees_per_line) + 1
+        
+        # Ensure line is in valid range
+        if line > 6:
+            line = 6
+        elif line < 1:
+            line = 1
+        
+        results[name] = {
+            'gate': gate,
+            'line': line,
+            'gate_index': gate_index,
+            'position_in_gate': round(position_in_gate, 6),
+            'matches_karen': gate == 23 and line == 6
+        }
+    
+    return jsonify({
+        'test_longitude': longitude,
+        'expected_result': {'gate': 23, 'line': 6},
+        'degrees_per_gate': degrees_per_gate,
+        'degrees_per_line': degrees_per_line,
+        'sequence_tests': results,
+        'summary': {
+            'any_sequence_correct': any(r['matches_karen'] for r in results.values()),
+            'longitude_in_taurus': f"{longitude}° = {longitude/30:.1f} signs = Taurus"
+        }
+    })
+
 @app.route('/v1/humandesign/profile', methods=['GET'])
 def get_human_design_profile():
     """Get Human Design profile"""
@@ -1066,7 +1131,7 @@ def health_check():
         'timezone_libraries': TIMEZONE_AVAILABLE,
         'mathematical_fix': 'Universal floating-point precision correction applied',
         'gate_sequence': 'Corrected official Human Design sequence implemented',
-        'version': '3.0.0-fixed-timezone-gates'
+        'version': '3.1.0-debug-gate-testing'
     })
 
 if __name__ == '__main__':
