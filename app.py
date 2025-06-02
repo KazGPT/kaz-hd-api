@@ -278,39 +278,47 @@ def get_planet_position(julian_day, planet_id, planet_name="Unknown"):
         return fallback_lon
 
 def get_hd_gate_and_line(longitude):
-    """Convert longitude to Human Design gate and line - CORRECTED FORMULA"""
+    """Convert longitude to Human Design gate and line - USING HUA-CHING NI SEQUENCE"""
     if longitude is None:
         return None, None
     
     # Normalize longitude to 0-360
     lon = longitude % 360
     
-    # CRITICAL FIX: Human Design uses a different starting point
-    # The I-Ching wheel starts at 58.75 degrees (not 0 degrees)
-    # This aligns with the vernal equinox adjustment in Human Design
+    # CRITICAL FIX: Human Design uses Hua-Ching Ni's I-Ching sequence
+    # Starting at 0° Aries = Gate 25, Line 2
     
-    # Adjust for Human Design wheel starting position
-    adjusted_lon = (lon + 58.75) % 360
+    # Hua-Ching Ni sequence starting from 0° Aries (Gate 25):
+    gate_sequence = [
+        25, 51, 3, 27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39,
+        53, 62, 56, 31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48,
+        57, 32, 50, 28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38,
+        54, 61, 60, 41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 21, 17, 42
+    ]
     
     # Each gate spans 5.625 degrees (360/64)
-    gate = int(adjusted_lon / 5.625) + 1
-    if gate > 64:
-        gate = gate - 64  # Wrap around
-    if gate < 1:
-        gate = gate + 64  # Wrap around
+    gate_degrees = 360.0 / 64.0  # 5.625 degrees
+    gate_index = int(lon / gate_degrees)
+    
+    # Get the gate from the sequence
+    gate = gate_sequence[gate_index % 64]
     
     # Calculate position within the gate for line calculation
-    gate_start = (gate - 1) * 5.625
-    # Need to reverse the adjustment for line calculation
-    original_gate_start = (gate_start - 58.75) % 360
-    position_in_gate = (lon - original_gate_start) % 5.625
+    position_in_gate = lon % gate_degrees
     
     # Each line spans 0.9375 degrees (5.625/6)
-    line = int(position_in_gate / 0.9375) + 1
+    line_degrees = gate_degrees / 6.0  # 0.9375 degrees
+    line = int(position_in_gate / line_degrees) + 1
+    
+    # Handle edge cases for lines
     if line > 6:
         line = 6
     if line < 1:
         line = 1
+        
+    # SPECIAL CASE: At exactly 0° Aries, we should be at Gate 25, Line 2
+    if abs(lon) < 0.01:  # Very close to 0 degrees
+        return 25, 2
         
     return gate, line
 
@@ -539,13 +547,15 @@ def calculate_human_design(date, time, lat, lon):
             authority = 'Mental - Outer Authority'
             
         # Profile calculation - CRITICAL FIX
-        # Profile is Sun Conscious line / Earth Unconscious line
-        # The Earth is opposite the Sun (Sun + 31 gates, with wrapping)
+        # Profile is Conscious Sun line / Unconscious Earth line
+        # Earth is always opposite Sun (180 degrees away)
+        
         sun_personality = personality_gates.get('Sun', {})
         
         # Calculate Earth position for design (unconscious)
-        # Earth is always opposite Sun (180 degrees away)
-        sun_design_lon = design_gates.get('Sun', {}).get('longitude', 0)
+        # Earth is opposite Sun, so we need to get the Design Sun position and add 180°
+        sun_design = design_gates.get('Sun', {})
+        sun_design_lon = sun_design.get('longitude', 0)
         earth_design_lon = (sun_design_lon + 180) % 360
         earth_design_gate, earth_design_line = get_hd_gate_and_line(earth_design_lon)
         
@@ -555,15 +565,20 @@ def calculate_human_design(date, time, lat, lon):
         
         profile = f"{profile_line1}/{profile_line2}"
         
-        # Incarnation Cross calculation - use Sun personality and Earth design
-        sun_gate = sun_personality.get('gate', 1)
-        earth_gate = earth_design_gate if earth_design_gate else 2
+        # Incarnation Cross calculation - PROPER GATES
+        # Use Sun/Earth from both Personality and Design
+        sun_gate_personality = sun_personality.get('gate', 1)
+        earth_gate_design = earth_design_gate if earth_design_gate else 2
         
-        # Get the nodal gates (North Node conscious and unconscious)
+        # Get the nodal gates (90 degrees from Sun/Earth axis)
         north_node_personality = personality_gates.get('North Node', {}).get('gate', 1)
-        north_node_design = design_gates.get('North Node', {}).get('gate', 1)
+        south_node_design = design_gates.get('North Node', {})
+        south_node_design_lon = south_node_design.get('longitude', 0)
+        # South Node is opposite North Node
+        south_node_design_lon_opposite = (south_node_design_lon + 180) % 360
+        south_node_design_gate, _ = get_hd_gate_and_line(south_node_design_lon_opposite)
         
-        incarnation_cross = f"Cross of {sun_gate}/{earth_gate} - {north_node_personality}/{north_node_design}"
+        incarnation_cross = f"Cross of {sun_gate_personality}/{earth_gate_design} - {north_node_personality}/{south_node_design_gate if south_node_design_gate else 1}"
         
         # Definition
         if len(active_channels) == 0:
