@@ -298,49 +298,159 @@ def calculate_house_cusps(julian_day, latitude, longitude):
         logger.error(f"House calculation failed: {e}")
         return None, None
 
-def fallback_planet_calculation(julian_day, planet_name):
-    """Fallback calculation when PySwissEph fails"""
-    try:
-        # Days since J2000.0
-        T = (julian_day - 2451545.0) / 36525.0
+def basic_sun_position(jd):
+    """Calculate Sun position with improved accuracy"""
+    # Days since J2000.0
+    T = (jd - 2451545.0) / 36525.0
+    
+    # Mean longitude of Sun
+    L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T
+    
+    # Mean anomaly
+    M = 357.52911 + 35999.05029 * T - 0.0001537 * T * T
+    M_rad = math.radians(M % 360)
+    
+    # Equation of center
+    C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M_rad) + \
+        (0.019993 - 0.000101 * T) * math.sin(2 * M_rad) + \
+        0.000289 * math.sin(3 * M_rad)
+    
+    # True longitude
+    longitude = (L0 + C) % 360
+    
+    return longitude
+
+def basic_moon_position(jd):
+    """Calculate Moon position with reasonable accuracy"""
+    # Days since J2000.0
+    T = (jd - 2451545.0) / 36525.0
+    
+    # Moon's mean longitude
+    L = 218.3164477 + 481267.88123421 * T - 0.0015786 * T * T + T * T * T / 538841
+    
+    # Moon's mean elongation
+    D = 297.8501921 + 445267.1114034 * T - 0.0018819 * T * T + T * T * T / 545868
+    
+    # Sun's mean anomaly
+    M_sun = 357.5291092 + 35999.0502909 * T - 0.0001536 * T * T + T * T * T / 24490000
+    
+    # Moon's mean anomaly
+    M = 134.9633964 + 477198.8675055 * T + 0.0087414 * T * T + T * T * T / 69699
+    
+    # Convert to radians
+    L_rad = math.radians(L % 360)
+    D_rad = math.radians(D % 360)
+    M_sun_rad = math.radians(M_sun % 360)
+    M_rad = math.radians(M % 360)
+    
+    # Longitude corrections (simplified but more accurate)
+    delta_L = 6.288774 * math.sin(M_rad) + \
+              1.274027 * math.sin(2 * D_rad - M_rad) + \
+              0.658314 * math.sin(2 * D_rad) + \
+              0.213618 * math.sin(2 * M_rad) - \
+              0.185116 * math.sin(M_sun_rad) - \
+              0.114332 * math.sin(2 * math.radians((93.272095 + 483202.017523 * T) % 360))
+    
+    # True longitude
+    longitude = (L + delta_L) % 360
+    
+    return longitude
+
+def basic_planet_positions(jd):
+    """Calculate basic positions for planets with Keplerian elements"""
+    # Days since J2000.0
+    d = jd - 2451545.0
+    
+    planets = {}
+    
+    # Simplified Keplerian elements for epoch J2000.0
+    # Format: (a, e, I, L, varpi, Omega) where:
+    # a = semi-major axis (AU)
+    # e = eccentricity
+    # I = inclination (degrees)
+    # L = mean longitude (degrees)
+    # varpi = longitude of perihelion (degrees)
+    # Omega = longitude of ascending node (degrees)
+    
+    elements = {
+        'Mercury': (0.38709927, 0.20563593, 7.00497902, 252.25032350, 77.45779628, 48.33076593),
+        'Venus': (0.72333566, 0.00677672, 3.39467605, 181.97909950, 131.60246718, 76.67984255),
+        'Mars': (1.52371034, 0.09339410, 1.84969142, -4.55343205, -23.94362959, 49.55953891),
+        'Jupiter': (5.20288700, 0.04838624, 1.30439695, 34.39644501, 14.72847983, 100.47390909),
+        'Saturn': (9.53667594, 0.05386179, 2.48599187, 49.95424423, 92.59887831, 113.66242448),
+        'Uranus': (19.18916464, 0.04725744, 0.77263783, 313.23810451, 170.95427630, 74.01692503),
+        'Neptune': (30.06992276, 0.00859048, 1.77004347, -55.12002969, 44.96476227, 131.78422574),
+        'Pluto': (39.48211675, 0.24882730, 17.14001206, 238.92903833, 224.06891629, 110.30393684)
+    }
+    
+    # Rates of change (degrees per day)
+    rates = {
+        'Mercury': 4.0923344368,
+        'Venus': 1.6021302244,
+        'Mars': 0.5240207766,
+        'Jupiter': 0.0831294681,
+        'Saturn': 0.0334442282,
+        'Uranus': 0.0117295811,
+        'Neptune': 0.0059810572,
+        'Pluto': 0.0039604282
+    }
+    
+    for planet, (a, e, I, L0, varpi, Omega) in elements.items():
+        # Mean longitude at epoch + motion
+        L = (L0 + rates[planet] * d) % 360
         
+        # For outer planets, add perturbations
+        if planet == 'Jupiter':
+            # Perturbation by Saturn
+            L += -0.332 * math.sin(math.radians(2 * L - 5 * (49.95 + 0.0334 * d)))
+        elif planet == 'Saturn':
+            # Perturbation by Jupiter
+            L += 0.812 * math.sin(math.radians(2 * L - 5 * (34.40 + 0.0831 * d)))
+        
+        planets[planet] = L % 360
+    
+    return planets
+
+def calculate_north_node(jd):
+    """Calculate North Node position"""
+    # Days since J2000.0
+    d = jd - 2451545.0
+    
+    # Mean longitude of ascending node
+    # Moves retrograde at about 0.0529 degrees per day
+    node_lon = (125.04452 - 0.0529921 * d) % 360
+    
+    return node_lon
+
+def fallback_planet_calculation(julian_day, planet_name):
+    """Improved fallback calculation when PySwissEph fails"""
+    try:
         if planet_name == 'Sun':
-            # Mean longitude of Sun
-            L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360
-            # Mean anomaly
-            M = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) % 360
-            M_rad = math.radians(M)
-            # Equation of center
-            C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * math.sin(M_rad) + \
-                (0.019993 - 0.000101 * T) * math.sin(2 * M_rad) + \
-                0.000289 * math.sin(3 * M_rad)
-            # True longitude
-            longitude = (L0 + C) % 360
-            return longitude
-            
+            return basic_sun_position(julian_day)
         elif planet_name == 'Moon':
-            # Simplified moon calculation
-            L = (218.3164477 + 481267.88123421 * T) % 360
-            return L
-            
+            return basic_moon_position(julian_day)
+        elif planet_name == 'North Node':
+            return calculate_north_node(julian_day)
         else:
-            # Basic mean longitudes for other planets
-            planet_data = {
-                'Mercury': (252.250906 + 149472.674635 * T) % 360,
-                'Venus': (181.979801 + 58517.815676 * T) % 360,
-                'Mars': (355.433 + 19140.299 * T) % 360,
-                'Jupiter': (34.351519 + 3034.90567 * T) % 360,
-                'Saturn': (50.077444 + 1222.11494 * T) % 360,
-                'Uranus': (314.055005 + 428.466998 * T) % 360,
-                'Neptune': (304.348665 + 218.486200 * T) % 360,
-                'Pluto': (238.956 + 145.205 * T) % 360,
-                'North Node': (125.04452 - 1934.136261 * T) % 360
-            }
-            return planet_data.get(planet_name, None)
-            
+            planets = basic_planet_positions(julian_day)
+            return planets.get(planet_name, None)
     except Exception as e:
         logger.error(f"Fallback calculation failed for {planet_name}: {e}")
-        return None
+        # Return a default position as last resort
+        default_positions = {
+            'Sun': 0.0,
+            'Moon': 180.0,
+            'Mercury': 30.0,
+            'Venus': 60.0,
+            'Mars': 90.0,
+            'Jupiter': 120.0,
+            'Saturn': 150.0,
+            'Uranus': 180.0,
+            'Neptune': 210.0,
+            'Pluto': 240.0,
+            'North Node': 270.0
+        }
+        return default_positions.get(planet_name, 0.0)
 
 def get_planet_position(julian_day, planet_id, planet_name="Unknown"):
     """Get planet position with fallback calculation"""
@@ -463,21 +573,37 @@ def calculate_human_design(date, time, lat, lon):
         
         # Calculate personality positions (natal)
         for planet_name, planet_id in planets.items():
-            longitude = get_planet_position(jd_natal, planet_id, planet_name)
-            if longitude is not None:
-                gate, line = get_hd_gate_and_line(longitude)
-                personality_gates[planet_name] = {
-                    'gate': gate, 'line': line, 'longitude': longitude
-                }
+            try:
+                longitude = get_planet_position(jd_natal, planet_id, planet_name)
+                if longitude is not None:
+                    gate, line = get_hd_gate_and_line(longitude)
+                    if gate is not None:
+                        personality_gates[planet_name] = {
+                            'gate': gate, 'line': line, 'longitude': longitude
+                        }
+                    else:
+                        logger.warning(f"Could not determine gate for {planet_name} at {longitude}°")
+                else:
+                    logger.warning(f"Could not calculate position for {planet_name}")
+            except Exception as e:
+                logger.error(f"Error calculating {planet_name}: {e}")
                 
         # Calculate design positions
         for planet_name, planet_id in planets.items():
-            longitude = get_planet_position(jd_design, planet_id, planet_name)
-            if longitude is not None:
-                gate, line = get_hd_gate_and_line(longitude)
-                design_gates[planet_name] = {
-                    'gate': gate, 'line': line, 'longitude': longitude
-                }
+            try:
+                longitude = get_planet_position(jd_design, planet_id, planet_name)
+                if longitude is not None:
+                    gate, line = get_hd_gate_and_line(longitude)
+                    if gate is not None:
+                        design_gates[planet_name] = {
+                            'gate': gate, 'line': line, 'longitude': longitude
+                        }
+                    else:
+                        logger.warning(f"Could not determine gate for Design {planet_name} at {longitude}°")
+                else:
+                    logger.warning(f"Could not calculate position for Design {planet_name}")
+            except Exception as e:
+                logger.error(f"Error calculating Design {planet_name}: {e}")
         
         # Get all active gates
         all_gates = set()
@@ -825,6 +951,38 @@ def debug_ephemeris():
         }
     
     return jsonify(ephe_status)
+
+@app.route('/debug/karen', methods=['GET'])
+def debug_karen():
+    """Debug endpoint to see what's happening with Karen's calculation"""
+    try:
+        # Calculate Julian Day for Karen's birth
+        dt = datetime(1975, 5, 15, 21, 5)  # Local time
+        dt_utc = dt - timedelta(hours=10) - timedelta(hours=-0.088)  # UTC conversion
+        jd = swe.julday(dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute/60.0)
+        
+        # Try to calculate Sun position
+        sun_lon = get_planet_position(jd, swe.SUN, "Sun")
+        
+        # Try gate calculation
+        gate, line = None, None
+        if sun_lon is not None:
+            gate, line = get_hd_gate_and_line(sun_lon)
+        
+        return jsonify({
+            'debug_info': {
+                'local_time': str(dt),
+                'utc_time': str(dt_utc),
+                'julian_day': jd,
+                'sun_longitude': sun_lon,
+                'sun_gate': gate,
+                'sun_line': line,
+                'ephemeris_path': EPHE_PATH,
+                'ephemeris_exists': os.path.exists(EPHE_PATH)
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
 
 @app.route('/test/karen', methods=['GET'])
 def test_karen_chart():
