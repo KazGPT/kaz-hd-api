@@ -103,10 +103,13 @@ def get_sign_from_longitude(longitude):
 def get_hd_gate_and_line(longitude):
     """
     Convert longitude to Human Design gate and line.
-    CORRECTED VERSION based on actual HD software output.
+    ROOT CAUSE FIXED: Using the exact gate positions from official HD sources.
     
-    The issue was the gate sequence - it doesn't start at 0° Aries = Gate 1.
-    Based on professional HD charts, the correct mapping needs adjustment.
+    Based on verified positions from search results:
+    - Gate 23 is at 18°52'30" - 24°30'00" Taurus (48.875° - 54.5° longitude)
+    - Gate 8 is at 24°30'00" - 30°00'00" Taurus (54.5° - 60° longitude)
+    
+    This ensures Karen's Sun at 54.009° correctly maps to Gate 23 Line 6.
     """
     if longitude is None:
         return None, None
@@ -114,38 +117,140 @@ def get_hd_gate_and_line(longitude):
     # Normalize longitude to 0-360
     longitude = longitude % 360.0
     
-    # CORRECTED GATE SEQUENCE based on professional HD software
-    # This sequence ensures 54° (24° Taurus) = Gate 23
-    # The HD wheel starts with Gate 41 at 0° Aries in the official system
-    gate_sequence = [
-        # Starting from 0° Aries
-        41, 19, 13, 49, 30, 55, 37, 63, 22, 36, 25, 17, 21, 51, 42, 3,
-        27, 24, 2, 23, 8, 20, 16, 35, 45, 12, 15, 52, 39, 53, 62, 56,
-        31, 33, 7, 4, 29, 59, 40, 64, 47, 6, 46, 18, 48, 57, 32, 50,
-        28, 44, 1, 43, 14, 34, 9, 5, 26, 11, 10, 58, 38, 54, 61, 60
+    # EXACT GATE POSITIONS based on verified Human Design sources
+    # Format: (start_longitude, end_longitude, gate_number)
+    gate_positions = [
+        # Aries (0° - 30°)
+        (0.000, 3.875, 25),      # 0°0'00" - 3°52'30" Aries
+        (3.875, 9.500, 17),      # 3°52'30" - 9°30'00" Aries
+        (9.500, 15.125, 21),     # 9°30'00" - 15°07'30" Aries
+        (15.125, 20.750, 51),    # 15°07'30" - 20°45'00" Aries
+        (20.750, 26.375, 42),    # 20°45'00" - 26°22'30" Aries
+        (26.375, 30.000, 3),     # 26°22'30" - 30°00'00" Aries
+        
+        # Taurus (30° - 60°)
+        (30.000, 32.000, 3),     # 0°00'00" - 2°00'00" Taurus (continuation)
+        (32.000, 37.625, 27),    # 2°00'00" - 7°37'30" Taurus
+        (37.625, 43.250, 24),    # 7°37'30" - 13°15'00" Taurus
+        (43.250, 48.875, 2),     # 13°15'00" - 18°52'30" Taurus
+        (48.875, 54.500, 23),    # 18°52'30" - 24°30'00" Taurus ← Karen's Sun here
+        (54.500, 60.000, 8),     # 24°30'00" - 30°00'00" Taurus
+        
+        # Gemini (60° - 90°)
+        (60.000, 60.125, 8),     # 0°00'00" - 0°07'30" Gemini (continuation)
+        (60.125, 65.750, 20),    # 0°07'30" - 5°45'00" Gemini
+        (65.750, 71.375, 16),    # 5°45'00" - 11°22'30" Gemini
+        (71.375, 77.000, 35),    # 11°22'30" - 17°00'00" Gemini
+        (77.000, 82.625, 45),    # 17°00'00" - 22°37'30" Gemini
+        (82.625, 88.250, 12),    # 22°37'30" - 28°15'00" Gemini
+        (88.250, 90.000, 15),    # 28°15'00" - 30°00'00" Gemini
+        
+        # Cancer (90° - 120°)
+        (90.000, 93.875, 15),    # 0°00'00" - 3°52'30" Cancer (continuation)
+        (93.875, 99.500, 52),    # 3°52'30" - 9°30'00" Cancer
+        (99.500, 105.125, 39),   # 9°30'00" - 15°07'30" Cancer
+        (105.125, 110.750, 53),  # 15°07'30" - 20°45'00" Cancer
+        (110.750, 116.375, 62),  # 20°45'00" - 26°22'30" Cancer
+        (116.375, 120.000, 56),  # 26°22'30" - 30°00'00" Cancer
+        
+        # Leo (120° - 150°)
+        (120.000, 122.000, 56),  # 0°00'00" - 2°00'00" Leo (continuation)
+        (122.000, 127.625, 31),  # 2°00'00" - 7°37'30" Leo
+        (127.625, 133.250, 33),  # 7°37'30" - 13°15'00" Leo
+        (133.250, 138.875, 7),   # 13°15'00" - 18°52'30" Leo
+        (138.875, 144.500, 4),   # 18°52'30" - 24°30'00" Leo
+        (144.500, 150.000, 29),  # 24°30'00" - 30°00'00" Leo
+        
+        # Virgo (150° - 180°)
+        (150.000, 150.125, 29),  # 0°00'00" - 0°07'30" Virgo (continuation)
+        (150.125, 155.750, 59),  # 0°07'30" - 5°45'00" Virgo
+        (155.750, 161.375, 40),  # 5°45'00" - 11°22'30" Virgo
+        (161.375, 167.000, 64),  # 11°22'30" - 17°00'00" Virgo
+        (167.000, 172.625, 47),  # 17°00'00" - 22°37'30" Virgo
+        (172.625, 178.250, 6),   # 22°37'30" - 28°15'00" Virgo
+        (178.250, 180.000, 46),  # 28°15'00" - 30°00'00" Virgo
+        
+        # Libra (180° - 210°)
+        (180.000, 183.875, 46),  # 0°00'00" - 3°52'30" Libra (continuation)
+        (183.875, 189.500, 18),  # 3°52'30" - 9°30'00" Libra
+        (189.500, 195.125, 48),  # 9°30'00" - 15°07'30" Libra
+        (195.125, 200.750, 57),  # 15°07'30" - 20°45'00" Libra
+        (200.750, 206.375, 32),  # 20°45'00" - 26°22'30" Libra
+        (206.375, 210.000, 50),  # 26°22'30" - 30°00'00" Libra
+        
+        # Scorpio (210° - 240°)
+        (210.000, 212.000, 50),  # 0°00'00" - 2°00'00" Scorpio (continuation)
+        (212.000, 217.625, 28),  # 2°00'00" - 7°37'30" Scorpio
+        (217.625, 223.250, 44),  # 7°37'30" - 13°15'00" Scorpio
+        (223.250, 228.875, 1),   # 13°15'00" - 18°52'30" Scorpio
+        (228.875, 234.500, 43),  # 18°52'30" - 24°30'00" Scorpio
+        (234.500, 240.000, 14),  # 24°30'00" - 30°00'00" Scorpio
+        
+        # Sagittarius (240° - 270°)
+        (240.000, 240.125, 14),  # 0°00'00" - 0°07'30" Sagittarius (continuation)
+        (240.125, 245.750, 34),  # 0°07'30" - 5°45'00" Sagittarius
+        (245.750, 251.375, 9),   # 5°45'00" - 11°22'30" Sagittarius
+        (251.375, 257.000, 5),   # 11°22'30" - 17°00'00" Sagittarius
+        (257.000, 262.625, 26),  # 17°00'00" - 22°37'30" Sagittarius
+        (262.625, 268.250, 11),  # 22°37'30" - 28°15'00" Sagittarius
+        (268.250, 270.000, 10),  # 28°15'00" - 30°00'00" Sagittarius
+        
+        # Capricorn (270° - 300°)
+        (270.000, 273.875, 10),  # 0°00'00" - 3°52'30" Capricorn (continuation)
+        (273.875, 279.500, 58),  # 3°52'30" - 9°30'00" Capricorn
+        (279.500, 285.125, 38),  # 9°30'00" - 15°07'30" Capricorn
+        (285.125, 290.750, 54),  # 15°07'30" - 20°45'00" Capricorn
+        (290.750, 296.375, 61),  # 20°45'00" - 26°22'30" Capricorn
+        (296.375, 300.000, 60),  # 26°22'30" - 30°00'00" Capricorn
+        
+        # Aquarius (300° - 330°)
+        (300.000, 302.000, 60),  # 0°00'00" - 2°00'00" Aquarius (continuation)
+        (302.000, 307.625, 41),  # 2°00'00" - 7°37'30" Aquarius
+        (307.625, 313.250, 19),  # 7°37'30" - 13°15'00" Aquarius
+        (313.250, 318.875, 13),  # 13°15'00" - 18°52'30" Aquarius
+        (318.875, 324.500, 49),  # 18°52'30" - 24°30'00" Aquarius
+        (324.500, 330.000, 30),  # 24°30'00" - 30°00'00" Aquarius
+        
+        # Pisces (330° - 360°)
+        (330.000, 330.125, 30),  # 0°00'00" - 0°07'30" Pisces (continuation)
+        (330.125, 335.750, 55),  # 0°07'30" - 5°45'00" Pisces
+        (335.750, 341.375, 37),  # 5°45'00" - 11°22'30" Pisces
+        (341.375, 347.000, 63),  # 11°22'30" - 17°00'00" Pisces
+        (347.000, 352.625, 22),  # 17°00'00" - 22°37'30" Pisces
+        (352.625, 358.250, 36),  # 22°37'30" - 28°15'00" Pisces
+        (358.250, 360.000, 25),  # 28°15'00" - 30°00'00" Pisces (wraps to Aries)
     ]
     
-    # Each gate spans exactly 5.625 degrees (360°/64 gates)
-    degrees_per_gate = 5.625
+    # Find which gate this longitude falls into
+    gate = None
+    gate_start = None
+    gate_end = None
     
-    # Each line spans exactly 0.9375 degrees (5.625°/6 lines)
-    degrees_per_line = degrees_per_gate / 6
+    for start, end, gate_num in gate_positions:
+        if start <= longitude < end:
+            gate = gate_num
+            gate_start = start
+            gate_end = end
+            break
     
-    # Calculate gate index (0-63)
-    gate_index = int(longitude / degrees_per_gate)
+    # Handle edge case at exactly 360°
+    if gate is None and longitude >= 358.250:
+        gate = 25
+        gate_start = 358.250
+        gate_end = 360.000
     
-    # Handle edge case at exactly 360°/0°
-    if gate_index >= 64:
-        gate_index = 0
-    
-    # Get gate number from sequence
-    gate = gate_sequence[gate_index]
+    if gate is None:
+        logger.error(f"Could not find gate for longitude {longitude}")
+        return None, None
     
     # Calculate position within the gate
-    position_in_gate = longitude % degrees_per_gate
+    position_in_gate = longitude - gate_start
+    gate_span = gate_end - gate_start
     
     # Calculate line (1-6)
-    line = int(position_in_gate / degrees_per_line) + 1
+    # Each line spans 1/6 of the gate
+    line_span = gate_span / 6
+    line = int(position_in_gate / line_span) + 1
     
     # Ensure line is in valid range
     if line > 6:
@@ -153,7 +258,7 @@ def get_hd_gate_and_line(longitude):
     elif line < 1:
         line = 1
     
-    logger.debug(f"Longitude {longitude:.6f}° -> Gate index {gate_index} -> Gate {gate}, Line {line}")
+    logger.debug(f"Longitude {longitude:.6f}° -> Gate {gate}, Line {line} (range: {gate_start}-{gate_end})")
     
     return gate, line
 
@@ -440,17 +545,15 @@ def calculate_human_design(date, time, lat, lon):
         else:
             authority = 'Mental - Outer Authority'
             
-        # Profile calculation
+        # Profile calculation - FIXED FOR ACCURACY
+        # Profile is Conscious Sun line / Unconscious Sun line
         sun_personality = personality_gates.get('Sun', {})
-        profile_line1 = sun_personality.get('line', 1)
-        
-        # Earth is opposite Sun, so design Earth line for profile
         sun_design = design_gates.get('Sun', {})
-        sun_design_lon = sun_design.get('longitude', 0)
-        earth_design_lon = (sun_design_lon + 180) % 360
-        earth_design_gate, earth_design_line = get_hd_gate_and_line(earth_design_lon)
         
-        profile = f"{profile_line1}/{earth_design_line if earth_design_line else 1}"
+        profile_line1 = sun_personality.get('line', 1)  # Personality Sun line
+        profile_line2 = sun_design.get('line', 1)       # Design Sun line
+        
+        profile = f"{profile_line1}/{profile_line2}"
         
         # Incarnation Cross calculation
         sun_gate_personality = sun_personality.get('gate', 1)
@@ -725,7 +828,12 @@ def debug_ephemeris():
 
 @app.route('/test/karen', methods=['GET'])
 def test_karen_chart():
-    """Test endpoint for Karen's chart to verify corrections"""
+    """
+    Test endpoint for Karen's chart to verify the ROOT CAUSE FIX.
+    Expected: Profile 6/2, Gate 23 Line 6 Sun, Manifesting Generator
+    
+    This test verifies that the corrected gate positions produce accurate results.
+    """
     try:
         # Karen's data: May 15, 1975, 21:05, Cowra NSW Australia
         hd_data = calculate_human_design(
@@ -743,6 +851,9 @@ def test_karen_chart():
         sun_line = hd_data['personality_gates'].get('Sun', {}).get('line')
         sun_longitude = hd_data['personality_gates'].get('Sun', {}).get('longitude')
         profile = hd_data.get('profile')
+        
+        # Calculate what gate/line we expect based on longitude
+        expected_gate, expected_line = get_hd_gate_and_line(sun_longitude) if sun_longitude else (None, None)
         
         return jsonify({
             'test_subject': 'Karen',
@@ -763,6 +874,7 @@ def test_karen_chart():
                 'sun_gate': sun_gate,
                 'sun_line': sun_line,
                 'sun_longitude': round(sun_longitude, 6) if sun_longitude else None,
+                'sun_longitude_dms': decimal_to_dms(sun_longitude) if sun_longitude else None,
                 'type': hd_data.get('type')
             },
             'verification': {
@@ -770,6 +882,11 @@ def test_karen_chart():
                 'sun_gate_correct': sun_gate == 23,
                 'sun_line_correct': sun_line == 6,
                 'all_correct': profile == '6/2' and sun_gate == 23 and sun_line == 6
+            },
+            'root_cause_fix': {
+                'issue': 'Gate sequence was incorrect in original code',
+                'solution': 'Used exact gate positions from HD sources',
+                'key_fix': 'Gate 23 at 18°52\'30" - 24°30\'00" Taurus (48.875° - 54.5°)'
             },
             'full_chart_data': hd_data
         })
@@ -902,8 +1019,13 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat(),
         'ephemeris_path': EPHE_PATH,
         'ephemeris_exists': os.path.exists(EPHE_PATH),
-        'version': '1.0.0-corrected',
-        'gate_sequence_corrected': True
+        'version': '2.0.0-fixed',
+        'root_cause_fix': {
+            'status': 'IMPLEMENTED',
+            'issue': 'Incorrect gate sequence mapping',
+            'solution': 'Using exact gate positions from verified HD sources',
+            'example': 'Gate 23 correctly positioned at 48.875° - 54.5° longitude'
+        }
     })
 
 if __name__ == '__main__':
